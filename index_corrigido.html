@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Estoque 3D</title>
+<style>
+*{box-sizing:border-box}
+html,body,#app{margin:0;width:100%;height:100%;overflow:hidden;font-family:Arial,sans-serif;background:#151515;color:#fff}
+#viewer{position:absolute;inset:0}
+#viewer canvas{display:block}
+#topbar{position:absolute;z-index:20;top:12px;left:12px;right:12px;display:flex;gap:8px;align-items:center;padding:10px 12px;background:rgba(20,20,20,.92);border-radius:12px;backdrop-filter:blur(8px)}
+h1{font-size:17px;margin:0 auto 0 0}
+button,input,textarea{font:inherit}
+button{border:0;border-radius:8px;padding:9px 12px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}
+button.gray{background:#444}
+button.red{background:#dc2626}
+input,textarea{width:100%;background:#222;color:#fff;border:1px solid #444;border-radius:8px;padding:9px;outline:0}
+#search{width:220px}
+#panel,#login{display:none;position:absolute;z-index:30;right:12px;top:72px;width:340px;max-height:calc(100vh - 84px);overflow:auto;padding:16px;background:rgba(20,20,20,.97);border-radius:12px;box-shadow:0 12px 40px #0008}
+#panel h2,#login h2{margin:0 0 12px}
+#panel>*{margin-bottom:9px}
+#panel textarea{min-height:90px;resize:vertical}
+#photoPreview{display:none;width:100%;max-height:230px;object-fit:contain;border-radius:8px;background:#111}
+#status,#selectedInfo{position:absolute;z-index:25;bottom:12px;padding:8px 11px;background:#000b;border-radius:8px;font-size:12px;pointer-events:none}
+#status{left:12px}.selectedInfo{right:12px}
+#selectedInfo{right:12px}
+#markers{position:absolute;inset:0;z-index:10;pointer-events:none}
+.marker{position:absolute;width:24px;height:24px;transform:translate(-50%,-50%);border:3px solid #fff;border-radius:50%;background:#ef4444;box-shadow:0 0 14px #ef4444;pointer-events:auto;cursor:grab;touch-action:none}
+.marker.selected{background:#22c55e;box-shadow:0 0 18px #22c55e;transform:translate(-50%,-50%) scale(1.25)}
+.marker.dragging{background:#f59e0b;cursor:grabbing}
+.small{font-size:12px;color:#aaa}
+@media(max-width:700px){
+ #topbar{flex-wrap:wrap}.topTitle{width:100%}#search{flex:1;width:auto}
+ #panel,#login{left:8px;right:8px;width:auto;top:115px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="viewer"></div>
+  <div id="markers"></div>
+
+  <div id="topbar">
+    <h1 class="topTitle">📦 Estoque 3D</h1>
+    <input id="search" placeholder="🔎 Procurar caixa...">
+    <button id="newMarker">+ Nova caixa</button>
+    <button id="loginBtn" class="gray">🔐 Login</button>
+    <button id="logoutBtn" class="gray" style="display:none">Sair</button>
+  </div>
+
+  <div id="login">
+    <h2>🔐 Login</h2>
+    <input id="email" type="email" placeholder="E-mail">
+    <input id="password" type="password" placeholder="Senha">
+    <button id="doLogin">Entrar</button>
+    <p id="loginStatus" class="small"></p>
+  </div>
+
+  <div id="panel">
+    <h2>📦 Caixa</h2>
+    <input id="name" placeholder="Nome / Produto">
+    <input id="sku" placeholder="SKU">
+    <input id="size" placeholder="Tamanho">
+    <textarea id="description" placeholder="Descrição"></textarea>
+    <label class="small">📷 Foto
+      <input id="photo" type="file" accept="image/*">
+    </label>
+    <img id="photoPreview">
+    <div>
+      <button id="save">💾 Salvar</button>
+      <button id="delete" class="red">🗑️ Excluir</button>
+      <button id="close" class="gray">Fechar</button>
+    </div>
+  </div>
+
+  <div id="status">Inicializando...</div>
+  <div id="selectedInfo">Nenhuma caixa 3D selecionada</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script type="importmap">
+{"imports":{
+ "three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+ "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
+
+const SUPABASE_URL="https://aoqrymkgxllxetpsbpij.supabase.co";
+const SUPABASE_KEY="sb_publishable_HxiRQDQvkyT204_EQY8L8Q_cMBgPyEx";
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+const $=id=>document.getElementById(id);
+const status=$("status");
+const setStatus=t=>status.textContent=t;
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x202020);
+
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.01,10000);
+camera.position.set(10,10,10);
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+$("viewer").appendChild(renderer.domElement);
+
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;
+controls.dampingFactor=.08;
+controls.minDistance=.05;
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x444444,2.2));
+const dl=new THREE.DirectionalLight(0xffffff,3);
+dl.position.set(20,40,20);
+scene.add(dl);
+
+let model=null;
+let selectedMesh=null;
+let outline=null;
+
+const raycaster=new THREE.Raycaster();
+const mouse=new THREE.Vector2();
+
+function clearMeshSelection(){
+  if(outline){
+    if(outline.parent) outline.parent.remove(outline);
+    outline.geometry?.dispose();
+    outline.material?.dispose();
+    outline=null;
+  }
+  selectedMesh=null;
+  $("selectedInfo").textContent="Nenhuma caixa 3D selecionada";
+}
+
+function selectMesh(mesh){
+  clearMeshSelection();
+  selectedMesh=mesh;
+  if(mesh.geometry){
+    const edges=new THREE.EdgesGeometry(mesh.geometry,20);
+    outline=new THREE.LineSegments(edges,new THREE.LineBasicMaterial({color:0xffff00,depthTest:false}));
+    outline.renderOrder=999;
+    mesh.add(outline);
+  }
+  $("selectedInfo").textContent="📦 "+(mesh.name||"Mesh sem nome");
+  setStatus("Caixa 3D selecionada.");
+}
+
+function pointerToNdc(e){
+  const r=renderer.domElement.getBoundingClientRect();
+  mouse.x=((e.clientX-r.left)/r.width)*2-1;
+  mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+}
+
+renderer.domElement.addEventListener("pointerdown",e=>{
+  if(dragging)return;
+  pointerToNdc(e);
+  raycaster.setFromCamera(mouse,camera);
+  if(!model)return;
+  const hits=raycaster.intersectObject(model,true);
+  const hit=hits.find(x=>x.object?.isMesh);
+  if(hit) selectMesh(hit.object);
+  else clearMeshSelection();
+});
+
+const loader=new GLTFLoader();
+const modelUrl=new URL("./estoque_corrigido.glb",location.href).href;
+
+async function loadModel(){
+  try{
+    setStatus("Baixando modelo 3D...");
+    const response=await fetch(modelUrl,{cache:"no-store"});
+    if(!response.ok) throw new Error(`HTTP ${response.status} ao buscar o modelo`);
+    const data=await response.arrayBuffer();
+    if(data.byteLength<12) throw new Error(`Arquivo recebido tem apenas ${data.byteLength} bytes`);
+    const magic=new TextDecoder().decode(new Uint8Array(data,0,4));
+    const version=new DataView(data).getUint32(4,true);
+    const declared= new DataView(data).getUint32(8,true);
+    console.log("GLB recebido:",{bytes:data.byteLength,magic,version,declared});
+    if(magic!=="glTF") throw new Error("O servidor não entregou um GLB válido (magic: "+magic+")");
+    if(declared>data.byteLength) throw new Error(`GLB incompleto: cabeçalho diz ${declared} bytes, recebido ${data.byteLength}`);
+    loader.parse(data,new URL("./",location.href).href,gltf=>{
+  model=gltf.scene;
+  scene.add(model);
+
+  const box=new THREE.Box3().setFromObject(model);
+  const center=box.getCenter(new THREE.Vector3());
+  model.position.sub(center);
+
+  const b2=new THREE.Box3().setFromObject(model);
+  const size=b2.getSize(new THREE.Vector3());
+  const max=Math.max(size.x,size.y,size.z)||10;
+
+  camera.position.set(max*1.25,max*.85,max*1.25);
+  controls.target.set(0,0,0);
+  controls.update();
+
+  let meshes=0;
+  model.traverse(o=>{if(o.isMesh)meshes++});
+  setStatus(`Modelo carregado — ${meshes} objetos selecionáveis.`);
+      },err=>{
+        console.error("GLB PARSE ERROR:",err);
+        setStatus("❌ O GLB foi baixado, mas não pôde ser interpretado.");
+      });
+  }catch(err){
+    console.error("GLB LOAD ERROR:",err);
+    setStatus("❌ Erro ao baixar/carregar o modelo: "+err.message);
+  }
+}
+loadModel();
+
+let markers=[];
+let selectedMarker=null;
+let dragging=false;
+let dragData=null;
+let dragPlane=null;
+
+function renderMarkers(){
+  $("markers").innerHTML="";
+  for(const m of markers){
+    const el=document.createElement("div");
+    el.className="marker";
+    el.title=m.nome||"Caixa";
+    if(selectedMarker?.id===m.id)el.classList.add("selected");
+
+    el.addEventListener("pointerdown",e=>{
+      e.preventDefault();e.stopPropagation();
+      selectMarker(m);
+      startDrag(m,el,e);
+    });
+    el.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();selectMarker(m)});
+    m._el=el;
+    $("markers").appendChild(el);
+  }
+  updateMarkerPositions();
+}
+
+function updateMarkerPositions(){
+  for(const m of markers){
+    if(!m._el)continue;
+    const p=new THREE.Vector3(Number(m.pos_x)||0,Number(m.pos_y)||0,Number(m.pos_z)||0);
+    p.project(camera);
+    const visible=p.z<=1;
+    m._el.style.display=visible?"block":"none";
+    m._el.style.left=((p.x*.5+.5)*innerWidth)+"px";
+    m._el.style.top=((-p.y*.5+.5)*innerHeight)+"px";
+  }
+}
+
+function selectMarker(m){
+  selectedMarker=m;
+  $("name").value=m.nome||"";
+  $("sku").value=m.sku||"";
+  $("size").value=m.tamanho||"";
+  $("description").value=m.descricao||"";
+  if(m.foto_url){
+    $("photoPreview").src=m.foto_url;
+    $("photoPreview").style.display="block";
+  }else{
+    $("photoPreview").style.display="none";
+    $("photoPreview").removeAttribute("src");
+  }
+  $("panel").style.display="block";
+  for(const x of markers)x._el?.classList.toggle("selected",x.id===m.id);
+}
+
+function startDrag(m,el,e){
+  dragging=true;
+  dragData={m,el};
+  controls.enabled=false;
+  el.classList.add("dragging");
+
+  const pos=new THREE.Vector3(Number(m.pos_x)||0,Number(m.pos_y)||0,Number(m.pos_z)||0);
+  const dir=new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  dragPlane=new THREE.Plane().setFromNormalAndCoplanarPoint(dir,pos);
+}
+
+window.addEventListener("pointermove",e=>{
+  if(!dragging||!dragData||!dragPlane)return;
+  pointerToNdc(e);
+  raycaster.setFromCamera(mouse,camera);
+  const hit=new THREE.Vector3();
+  if(raycaster.ray.intersectPlane(dragPlane,hit)){
+    dragData.m.pos_x=hit.x;
+    dragData.m.pos_y=hit.y;
+    dragData.m.pos_z=hit.z;
+    updateMarkerPositions();
+  }
+});
+
+window.addEventListener("pointerup",async()=>{
+  if(!dragging||!dragData)return;
+  const {m,el}=dragData;
+  dragging=false;dragData=null;dragPlane=null;
+  controls.enabled=true;
+  el.classList.remove("dragging");
+  await savePosition(m);
+});
+
+async function savePosition(m){
+  const {error}=await db.from("markers").update({
+    pos_x:m.pos_x,pos_y:m.pos_y,pos_z:m.pos_z
+  }).eq("id",m.id);
+  if(error){console.error(error);setStatus("❌ Erro ao salvar posição: "+error.message)}
+  else setStatus("📍 Posição salva.");
+}
+
+$("newMarker").onclick=async()=>{
+  const {data:{user}}=await db.auth.getUser();
+  if(!user){alert("Faça login para criar uma caixa.");return;}
+
+  let p=new THREE.Vector3(0,0,0);
+  if(selectedMesh){
+    p=new THREE.Box3().setFromObject(selectedMesh).getCenter(new THREE.Vector3());
+  }else{
+    p.set(0,0,0);
+  }
+
+  const {data,error}=await db.from("markers").insert({
+    nome:"Nova caixa",pos_x:p.x,pos_y:p.y,pos_z:p.z
+  }).select().single();
+
+  if(error){console.error(error);alert("Erro ao criar caixa:\n"+error.message);return;}
+  if(!markers.some(x=>x.id===data.id))markers.push(data);
+  renderMarkers();selectMarker(data);
+  setStatus("📦 Caixa criada.");
+};
+
+$("save").onclick=async()=>{
+  if(!selectedMarker)return;
+
+  const updates={
+    nome:$("name").value.trim(),
+    sku:$("sku").value.trim(),
+    tamanho:$("size").value.trim(),
+    descricao:$("description").value.trim()
+  };
+
+  const file=$("photo").files[0];
+  if(file){
+    const ext=(file.name.split(".").pop()||"jpg").toLowerCase();
+    const path=`${selectedMarker.id}-${Date.now()}.${ext}`;
+    const {error:upErr}=await db.storage.from("estoque-fotos").upload(path,file,{contentType:file.type,upsert:false});
+    if(upErr){alert("Erro no upload da foto:\n"+upErr.message);return}
+    const {data:urlData}=db.storage.from("estoque-fotos").getPublicUrl(path);
+    updates.foto_url=urlData.publicUrl;
+  }
+
+  const {data,error}=await db.from("markers").update(updates).eq("id",selectedMarker.id).select().single();
+  if(error){alert("Erro ao salvar:\n"+error.message);return}
+
+  Object.assign(selectedMarker,data);
+  $("photo").value="";
+  renderMarkers();
+  selectMarker(selectedMarker);
+  setStatus("💾 Caixa salva.");
+};
+
+async function deleteSelectedMarker(){
+  if(!selectedMarker)return;
+  const id=selectedMarker.id;
+  const {error}=await db.from("markers").delete().eq("id",id);
+  if(error){console.error(error);setStatus("❌ Erro ao excluir: "+error.message);return}
+  markers=markers.filter(m=>m.id!==id);
+  selectedMarker=null;
+  $("panel").style.display="none";
+  renderMarkers();
+  setStatus("🗑️ Marcador excluído.");
+}
+$("delete").onclick=deleteSelectedMarker;
+
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Delete"||!selectedMarker)return;
+  const a=document.activeElement;
+  if(a&&(a.tagName==="INPUT"||a.tagName==="TEXTAREA"))return;
+  e.preventDefault();
+  deleteSelectedMarker();
+});
+
+$("close").onclick=()=>{
+  $("panel").style.display="none";
+  selectedMarker=null;
+  renderMarkers();
+};
+
+$("search").addEventListener("input",()=>{
+  const q=$("search").value.toLowerCase().trim();
+  for(const m of markers){
+    if(!m._el)continue;
+    const text=[m.nome,m.sku,m.tamanho,m.descricao].filter(Boolean).join(" ").toLowerCase();
+    m._el.style.display=(!q||text.includes(q))?"block":"none";
+  }
+});
+
+$("loginBtn").onclick=()=>$("login").style.display="block";
+$("doLogin").onclick=async()=>{
+  const email=$("email").value.trim(),password=$("password").value;
+  const {error}=await db.auth.signInWithPassword({email,password});
+  if(error){$("loginStatus").textContent=error.message;return}
+  $("login").style.display="none";$("email").value="";$("password").value="";
+  updateAuthUI();setStatus("🔓 Login realizado.");
+};
+$("logoutBtn").onclick=async()=>{await db.auth.signOut();updateAuthUI();setStatus("🔒 Sessão encerrada.")};
+
+async function updateAuthUI(){
+  const {data:{user}}=await db.auth.getUser();
+  $("loginBtn").style.display=user?"none":"block";
+  $("logoutBtn").style.display=user?"block":"none";
+}
+
+async function loadMarkers(){
+  const {data,error}=await db.from("markers").select("*");
+  if(error){console.error(error);setStatus("❌ Erro nos marcadores: "+error.message);return}
+  markers=data||[];
+  renderMarkers();
+  setStatus(`${markers.length} caixas carregadas.`);
+}
+
+db.channel("markers-realtime")
+.on("postgres_changes",{event:"*",schema:"public",table:"markers"},payload=>{
+  if(payload.eventType==="INSERT"){
+    if(!markers.some(m=>m.id===payload.new.id))markers.push(payload.new);
+  }else if(payload.eventType==="UPDATE"){
+    const i=markers.findIndex(m=>m.id===payload.new.id);
+    if(i>=0){
+      const was=selectedMarker?.id===payload.new.id;
+      markers[i]=payload.new;
+      if(was)selectedMarker=markers[i];
+    }
+  }else if(payload.eventType==="DELETE"){
+    markers=markers.filter(m=>m.id!==payload.old.id);
+    if(selectedMarker?.id===payload.old.id){selectedMarker=null;$("panel").style.display="none"}
+  }
+  renderMarkers();
+  if(selectedMarker)selectMarker(selectedMarker);
+})
+.subscribe();
+
+window.addEventListener("resize",()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+  updateMarkerPositions();
+});
+
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  updateMarkerPositions();
+  renderer.render(scene,camera);
+}
+animate();
+
+updateAuthUI();
+loadMarkers();
+</script>
+</body>
+</html>
