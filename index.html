@@ -575,7 +575,130 @@ const loader =
     new GLTFLoader();
 
 let model = null;
+    // ======================================================
+// SELEÇÃO DE OBJETOS 3D
+// ======================================================
 
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+let selectedObject3D = null;
+let selectionOutline = null;
+
+function clearObjectSelection() {
+
+    if (selectionOutline) {
+        scene.remove(selectionOutline);
+        selectionOutline.geometry.dispose();
+        selectionOutline.material.dispose();
+        selectionOutline = null;
+    }
+
+    selectedObject3D = null;
+}
+
+function selectObject3D(object) {
+
+    clearObjectSelection();
+
+    selectedObject3D = object;
+
+    // Cria um contorno em volta da caixa
+    const edges = new THREE.EdgesGeometry(
+        object.geometry,
+        25
+    );
+
+    const material = new THREE.LineBasicMaterial({
+        color: 0xffff00,
+        linewidth: 3
+    });
+
+    selectionOutline = new THREE.LineSegments(
+        edges,
+        material
+    );
+
+    selectionOutline.position.copy(
+        object.position
+    );
+
+    selectionOutline.rotation.copy(
+        object.rotation
+    );
+
+    selectionOutline.scale.copy(
+        object.scale
+    );
+
+    scene.add(selectionOutline);
+
+    console.log(
+        "Objeto selecionado:",
+        object.name
+    );
+
+    setStatus(
+        `Caixa selecionada: ${object.name || "sem nome"}`
+    );
+}
+
+renderer.domElement.addEventListener(
+    "pointerdown",
+    function(event) {
+
+        // Se estiver clicando em um marcador,
+        // não seleciona o modelo.
+        if (event.target !== renderer.domElement)
+            return;
+
+        const rect =
+            renderer.domElement.getBoundingClientRect();
+
+        mouse.x =
+            ((event.clientX - rect.left) / rect.width) * 2 - 1;
+
+        mouse.y =
+            -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        raycaster.setFromCamera(
+            mouse,
+            camera
+        );
+
+        if (!model)
+            return;
+
+        const intersections =
+            raycaster.intersectObject(
+                model,
+                true
+            );
+
+        if (intersections.length > 0) {
+
+            const object =
+                intersections[0].object;
+
+            if (object.isMesh) {
+
+                selectObject3D(object);
+
+            }
+
+        } else {
+
+            clearObjectSelection();
+
+            setStatus(
+                "Nenhuma caixa selecionada."
+            );
+        }
+
+    }
+);
+    
+    
 loader.load(
 
     "estoque.glb",
@@ -736,6 +859,9 @@ function renderMarkers() {
 
         element.style.pointerEvents =
             "auto";
+
+        
+        element.style.touchAction = "none";
 
 
         element.title =
@@ -1001,7 +1127,142 @@ document.getElementById(
 
         };
 
+        let draggingMarker = false;
+let dragStartX = 0;
+let dragStartY = 0;
 
+element.addEventListener(
+    "pointerdown",
+    function(event) {
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!selectedMarker ||
+            selectedMarker.id !== marker.id) {
+
+            selectMarker(marker);
+
+        }
+
+        draggingMarker = true;
+
+        dragStartX = event.clientX;
+        dragStartY = event.clientY;
+
+        element.setPointerCapture(
+            event.pointerId
+        );
+
+        controls.enabled = false;
+
+    }
+);
+
+element.addEventListener(
+    "pointermove",
+    function(event) {
+
+        if (!draggingMarker)
+            return;
+
+        const dx =
+            event.clientX - dragStartX;
+
+        const dy =
+            event.clientY - dragStartY;
+
+        const distance =
+            camera.position.distanceTo(
+                new THREE.Vector3(
+                    marker.pos_x,
+                    marker.pos_y,
+                    marker.pos_z
+                )
+            );
+
+        const scale =
+            distance /
+            Math.min(
+                window.innerWidth,
+                window.innerHeight
+            );
+
+        marker.pos_x +=
+            dx * scale * 2;
+
+        marker.pos_y -=
+            dy * scale * 2;
+
+        dragStartX =
+            event.clientX;
+
+        dragStartY =
+            event.clientY;
+
+    }
+);
+
+element.addEventListener(
+    "pointerup",
+    async function(event) {
+
+        if (!draggingMarker)
+            return;
+
+        draggingMarker = false;
+
+        controls.enabled = true;
+
+        element.releasePointerCapture(
+            event.pointerId
+        );
+
+        await saveMarkerPosition(
+            marker
+        );
+
+    }
+);
+// ======================================================
+// NOVA CAIXA
+// ======================================================
+
+// ======================================================
+// SALVAR POSIÇÃO DO MARCADOR
+// ======================================================
+
+async function saveMarkerPosition(marker) {
+
+    const {
+        error
+    } = await supabaseClient
+        .from("markers")
+        .update({
+            pos_x: marker.pos_x,
+            pos_y: marker.pos_y,
+            pos_z: marker.pos_z
+        })
+        .eq(
+            "id",
+            marker.id
+        );
+
+    if (error) {
+
+        console.error(error);
+
+        setStatus(
+            "Erro ao salvar posição."
+        );
+
+        return;
+    }
+
+    setStatus(
+        "Posição do marcador salva."
+    );
+}
         // ==================================================
         // UPLOAD DA FOTO
         // ==================================================
@@ -1121,6 +1382,88 @@ document.getElementById(
     }
 );
 
+    // ======================================================
+// DELETE PELO TECLADO
+// ======================================================
+
+document.addEventListener(
+    "keydown",
+    async function(event) {
+
+        if (event.key !== "Delete")
+            return;
+
+        if (!selectedMarker)
+            return;
+
+        // Não deixa o Delete apagar marcador
+        // enquanto estiver digitando nos campos.
+        const active =
+            document.activeElement;
+
+        if (
+            active &&
+            (
+                active.tagName === "INPUT" ||
+                active.tagName === "TEXTAREA"
+            )
+        ) {
+            return;
+        }
+
+        await deleteSelectedMarker();
+
+    }
+);
+    async function deleteSelectedMarker() {
+
+    if (!selectedMarker)
+        return;
+
+    const id =
+        selectedMarker.id;
+
+    const {
+        error
+    } =
+    await supabaseClient
+        .from("markers")
+        .delete()
+        .eq(
+            "id",
+            id
+        );
+
+    if (error) {
+
+        console.error(error);
+
+        setStatus(
+            "Erro ao excluir marcador."
+        );
+
+        return;
+    }
+
+    markers =
+        markers.filter(
+            marker =>
+                marker.id !== id
+        );
+
+    selectedMarker = null;
+
+    document.getElementById(
+        "panel"
+    ).style.display = "none";
+
+    renderMarkers();
+
+    setStatus(
+        "Marcador excluído."
+    );
+}
+
 
 // ======================================================
 // EXCLUIR
@@ -1136,10 +1479,19 @@ document.getElementById(
             return;
 
 
-        if (!confirm(
-            "Excluir esta caixa?"
-        ))
-            return;
+       if (!selectedMarker)
+    return;
+
+const {
+    error
+} =
+await supabaseClient
+.from("markers")
+.delete()
+.eq(
+    "id",
+    selectedMarker.id
+);
 
 
         const {
