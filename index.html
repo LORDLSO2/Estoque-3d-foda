@@ -1,730 +1,1516 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Estoque 3D</title>
-
-    <!-- Biblioteca para visualizar modelos 3D -->
-    <script type="module"
-        src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js">
-    </script>
-
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: #111827;
-            color: white;
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-
-        /* =========================
-           CABEÇALHO
-        ========================= */
-
-        header {
-            height: 70px;
-            background: #1f2937;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 25px;
-            border-bottom: 1px solid #374151;
-        }
-
-        header h1 {
-            font-size: 22px;
-        }
-
-        header span {
-            color: #9ca3af;
-            font-size: 14px;
-        }
-
-        /* =========================
-           ÁREA PRINCIPAL
-        ========================= */
-
-        .container {
-            display: grid;
-            grid-template-columns: 1fr 350px;
-            height: calc(100vh - 70px);
-        }
-
-        /* =========================
-           MODELO 3D
-        ========================= */
-
-        .viewer-container {
-            position: relative;
-            background: #0b1120;
-            min-height: 500px;
-        }
-
-        model-viewer {
-            width: 100%;
-            height: 100%;
-            background: #0b1120;
-            --poster-color: #0b1120;
-        }
-
-        /* Mensagem em cima do modelo */
-
-        .instructions {
-            position: absolute;
-            left: 20px;
-            bottom: 20px;
-
-            background: rgba(0, 0, 0, 0.65);
-            padding: 12px 16px;
-            border-radius: 10px;
-
-            color: #d1d5db;
-            font-size: 13px;
-
-            backdrop-filter: blur(5px);
-        }
-
-        /* =========================
-           PAINEL LATERAL
-        ========================= */
-
-        .sidebar {
-            background: #1f2937;
-            border-left: 1px solid #374151;
-
-            padding: 20px;
 
-            overflow-y: auto;
-        }
+<meta charset="UTF-8">
 
-        .sidebar h2 {
-            margin-bottom: 8px;
-        }
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
 
-        .subtitle {
-            color: #9ca3af;
-            font-size: 13px;
-            margin-bottom: 20px;
-        }
+<title>Estoque 3D</title>
 
-        /* =========================
-           PRODUTO SELECIONADO
-        ========================= */
+<style>
 
-        .info-box {
-            background: #111827;
-            border: 1px solid #374151;
-            border-radius: 12px;
+* {
+    box-sizing: border-box;
+}
 
-            padding: 18px;
-            margin-bottom: 20px;
-        }
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #111;
+    color: white;
+}
 
-        .info-box h3 {
-            margin-bottom: 15px;
-        }
+#app {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+}
 
-        .info-row {
-            display: flex;
-            justify-content: space-between;
+#viewer {
+    width: 100%;
+    height: 100%;
+}
 
-            padding: 9px 0;
+#topbar {
 
-            border-bottom: 1px solid #374151;
+    position: absolute;
 
-            font-size: 14px;
-        }
+    top: 15px;
+    left: 15px;
+    right: 15px;
 
-        .info-row:last-child {
-            border-bottom: none;
-        }
+    z-index: 10;
 
-        .info-label {
-            color: #9ca3af;
-        }
+    display: flex;
 
-        .stock {
-            font-weight: bold;
-            color: #22c55e;
-        }
+    align-items: center;
 
-        /* =========================
-           BOTÕES
-        ========================= */
+    gap: 10px;
 
-        .locations-title {
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
+    padding: 12px 15px;
 
-        .location-button {
-            width: 100%;
+    background: rgba(20,20,20,.92);
 
-            border: 1px solid #374151;
-            background: #111827;
-            color: white;
+    border-radius: 12px;
 
-            padding: 13px;
+    backdrop-filter: blur(10px);
+}
 
-            margin-bottom: 8px;
+#topbar h1 {
 
-            border-radius: 9px;
+    margin: 0;
 
-            cursor: pointer;
+    font-size: 18px;
 
-            text-align: left;
+    margin-right: auto;
+}
 
-            transition: 0.2s;
-        }
+button {
 
-        .location-button:hover {
-            background: #374151;
-            transform: translateX(3px);
-        }
+    border: none;
 
-        .location-button.active {
-            background: #2563eb;
-            border-color: #3b82f6;
-        }
+    border-radius: 8px;
 
-        .location-name {
-            font-weight: bold;
-            display: block;
-            margin-bottom: 4px;
-        }
+    padding: 10px 14px;
 
-        .location-product {
-            color: #9ca3af;
-            font-size: 12px;
-        }
+    cursor: pointer;
 
-        .location-button.active .location-product {
-            color: #dbeafe;
-        }
+    background: #2563eb;
 
-        /* =========================
-           BOTÃO TELA CHEIA
-        ========================= */
+    color: white;
 
-        .fullscreen-button {
-            position: absolute;
+    font-weight: bold;
+}
 
-            top: 20px;
-            right: 20px;
+button:hover {
 
-            background: rgba(0, 0, 0, 0.65);
+    background: #1d4ed8;
+}
 
-            color: white;
+button.danger {
 
-            border: 1px solid #4b5563;
+    background: #dc2626;
+}
 
-            border-radius: 8px;
+button.gray {
 
-            padding: 10px 14px;
+    background: #444;
+}
 
-            cursor: pointer;
+#login {
 
-            z-index: 10;
-        }
+    position: absolute;
 
-        .fullscreen-button:hover {
-            background: #374151;
-        }
+    top: 80px;
+    right: 15px;
 
-        /* =========================
-           MOBILE
-        ========================= */
+    z-index: 20;
 
-        @media (max-width: 800px) {
+    width: 300px;
 
-            header {
-                height: 60px;
-                padding: 0 15px;
-            }
+    padding: 20px;
 
-            header h1 {
-                font-size: 18px;
-            }
+    background: rgba(20,20,20,.96);
 
-            header span {
-                display: none;
-            }
+    border-radius: 12px;
 
-            .container {
-                display: block;
-                height: auto;
-            }
+    display: none;
+}
 
-            .viewer-container {
-                height: 60vh;
-                min-height: 400px;
-            }
+#login input {
 
-            .sidebar {
-                border-left: none;
-                border-top: 1px solid #374151;
-            }
+    width: 100%;
 
-            .instructions {
-                bottom: 10px;
-                left: 10px;
-                font-size: 11px;
-            }
-        }
-    </style>
+    padding: 10px;
+
+    margin-bottom: 10px;
+
+    border-radius: 7px;
+
+    border: 1px solid #444;
+
+    background: #222;
+
+    color: white;
+}
+
+#panel {
+
+    position: absolute;
+
+    top: 80px;
+
+    right: 15px;
+
+    width: 330px;
+
+    max-height: calc(100vh - 100px);
+
+    overflow-y: auto;
+
+    z-index: 15;
+
+    background: rgba(20,20,20,.96);
+
+    border-radius: 12px;
+
+    padding: 18px;
+
+    display: none;
+}
+
+#panel h2 {
+
+    margin-top: 0;
+}
+
+#panel input,
+#panel textarea {
+
+    width: 100%;
+
+    margin-bottom: 10px;
+
+    padding: 10px;
+
+    border-radius: 7px;
+
+    border: 1px solid #444;
+
+    background: #222;
+
+    color: white;
+}
+
+#panel textarea {
+
+    resize: vertical;
+
+    min-height: 80px;
+}
+
+.marker {
+
+    width: 22px;
+
+    height: 22px;
+
+    border-radius: 50%;
+
+    background: #ef4444;
+
+    border: 3px solid white;
+
+    box-shadow: 0 0 15px rgba(239,68,68,.8);
+
+    cursor: pointer;
+
+    position: absolute;
+
+    transform: translate(-50%, -50%);
+}
+
+.marker:hover {
+
+    transform: translate(-50%, -50%) scale(1.25);
+}
+
+#status {
+
+    position: absolute;
+
+    bottom: 15px;
+
+    left: 15px;
+
+    z-index: 10;
+
+    padding: 8px 12px;
+
+    border-radius: 8px;
+
+    background: rgba(0,0,0,.7);
+
+    font-size: 13px;
+}
+
+#search {
+
+    width: 220px;
+
+    padding: 9px 12px;
+
+    border-radius: 8px;
+
+    border: 1px solid #444;
+
+    background: #222;
+
+    color: white;
+}
+
+#photoPreview {
+
+    width: 100%;
+
+    border-radius: 8px;
+
+    margin-top: 5px;
+
+    display: none;
+}
+
+.small {
+
+    color: #aaa;
+
+    font-size: 12px;
+
+    margin-bottom: 10px;
+}
+
+</style>
+
 </head>
+
 
 <body>
 
-    <!-- =========================
-         CABEÇALHO
-    ========================= -->
+<div id="app">
 
-    <header>
+    <div id="viewer"></div>
+
+
+    <div id="topbar">
 
         <h1>📦 Estoque 3D</h1>
 
-        <span>
-            Visualização interativa do estoque
-        </span>
-
-    </header>
-
-
-    <!-- =========================
-         CONTEÚDO
-    ========================= -->
-
-    <div class="container">
-
-
-        <!-- =========================
-             MODELO 3D
-        ========================= -->
-
-        <div class="viewer-container">
-
-            <button
-                class="fullscreen-button"
-                onclick="fullscreenViewer()">
-                ⛶ Tela cheia
-            </button>
-
-
-            <!--
-                SEU MODELO 3D
-
-                O nome do arquivo precisa ser exatamente:
-                Sem título.glb
-            -->
-
-            <model-viewer
-                id="modelo3d"
-
-                src="Sem%20t%C3%ADtulo.glb"
-
-                camera-controls
-
-                touch-action="pan-y"
-
-                auto-rotate
-
-                shadow-intensity="1"
-
-                exposure="1"
-
-                environment-image="neutral"
-
-                camera-orbit="0deg 75deg 4m"
-
-                field-of-view="35deg"
-
-                loading="eager"
-
-                alt="Modelo 3D do estoque">
-
-            </model-viewer>
-
-
-            <div class="instructions">
-
-                🖱️ Arraste para girar ·
-                🔍 Scroll para zoom ·
-                📱 Arraste com o dedo no celular
-
-            </div>
-
-        </div>
-
-
-        <!-- =========================
-             PAINEL
-        ========================= -->
-
-        <aside class="sidebar">
-
-            <h2>📋 Informações</h2>
-
-            <p class="subtitle">
-                Selecione uma localização para visualizar os dados.
-            </p>
-
-
-            <!-- PRODUTO SELECIONADO -->
-
-            <div class="info-box">
-
-                <h3 id="produtoNome">
-                    Selecione um local
-                </h3>
-
-
-                <div class="info-row">
-
-                    <span class="info-label">
-                        Localização
-                    </span>
-
-                    <span id="produtoLocal">
-                        —
-                    </span>
-
-                </div>
-
-
-                <div class="info-row">
-
-                    <span class="info-label">
-                        Quantidade
-                    </span>
-
-                    <span
-                        id="produtoQuantidade"
-                        class="stock">
-                        —
-                    </span>
-
-                </div>
-
-
-                <div class="info-row">
-
-                    <span class="info-label">
-                        Código
-                    </span>
-
-                    <span id="produtoCodigo">
-                        —
-                    </span>
-
-                </div>
-
-
-                <div class="info-row">
-
-                    <span class="info-label">
-                        Status
-                    </span>
-
-                    <span id="produtoStatus">
-                        —
-                    </span>
-
-                </div>
-
-            </div>
-
-
-            <!-- LOCALIZAÇÕES -->
-
-            <h3 class="locations-title">
-                📍 Localizações
-            </h3>
-
-
-            <div id="locations">
-
-                <!--
-                    Os botões serão criados
-                    automaticamente pelo JavaScript.
-                -->
-
-            </div>
-
-        </aside>
+        <input
+            id="search"
+            type="text"
+            placeholder="🔎 Procurar caixa..."
+        >
+
+        <button id="newMarker">
+            + Nova caixa
+        </button>
+
+        <button
+            id="loginButton"
+            class="gray"
+        >
+            🔐 Login
+        </button>
+
+        <button
+            id="logoutButton"
+            class="gray"
+            style="display:none"
+        >
+            Sair
+        </button>
 
     </div>
 
 
-    <!-- =========================
-         JAVASCRIPT
-    ========================= -->
+    <div id="login">
 
-    <script>
+        <h2>Login</h2>
 
-        /*
-        ============================================================
-        DADOS DO ESTOQUE
+        <input
+            id="email"
+            type="email"
+            placeholder="E-mail"
+        >
 
-        É AQUI que você vai colocar seus produtos.
+        <input
+            id="password"
+            type="password"
+            placeholder="Senha"
+        >
 
-        Pode adicionar quantos quiser.
-        ============================================================
-        */
+        <button id="doLogin">
+            Entrar
+        </button>
 
-        const estoque = [
+        <p
+            id="loginStatus"
+            class="small"
+        ></p>
 
-            {
-                local: "A-01",
-                produto: "Produto exemplo 1",
-                quantidade: 25,
-                codigo: "PROD-001",
-                status: "Disponível"
-            },
+    </div>
 
-            {
-                local: "A-02",
-                produto: "Produto exemplo 2",
-                quantidade: 12,
-                codigo: "PROD-002",
-                status: "Disponível"
-            },
 
-            {
-                local: "A-03",
-                produto: "Produto exemplo 3",
-                quantidade: 4,
-                codigo: "PROD-003",
-                status: "Baixo estoque"
-            },
+    <div id="panel">
 
-            {
-                local: "B-01",
-                produto: "Produto exemplo 4",
-                quantidade: 0,
-                codigo: "PROD-004",
-                status: "Sem estoque"
-            },
+        <h2>📦 Caixa</h2>
 
-            {
-                local: "B-02",
-                produto: "Produto exemplo 5",
-                quantidade: 38,
-                codigo: "PROD-005",
-                status: "Disponível"
-            },
+        <div class="small">
+            Informações da caixa
+        </div>
 
-            {
-                local: "B-03",
-                produto: "Produto exemplo 6",
-                quantidade: 17,
-                codigo: "PROD-006",
-                status: "Disponível"
-            }
 
-        ];
+        <input
+            id="markerName"
+            placeholder="Nome / Produto"
+        >
 
+        <input
+            id="markerSku"
+            placeholder="SKU"
+        >
 
-        /*
-        ============================================================
-        CRIAR OS BOTÕES
-        ============================================================
-        */
+        <input
+            id="markerSize"
+            placeholder="Tamanho"
+        >
 
-        const locationsContainer =
-            document.getElementById("locations");
+        <textarea
+            id="markerDescription"
+            placeholder="Descrição"
+        ></textarea>
 
 
-        estoque.forEach((item, index) => {
+        <label>
 
-            const button =
-                document.createElement("button");
+            Foto da caixa:
 
+            <input
+                id="photo"
+                type="file"
+                accept="image/*"
+            >
 
-            button.className =
-                "location-button";
+        </label>
 
 
-            button.innerHTML = `
+        <img
+            id="photoPreview"
+        >
 
-                <span class="location-name">
-                    📍 ${item.local}
-                </span>
 
-                <span class="location-product">
-                    ${item.produto}
-                </span>
+        <br><br>
 
-            `;
 
+        <button id="saveMarker">
+            💾 Salvar
+        </button>
 
-            button.onclick = function () {
+        <button
+            id="deleteMarker"
+            class="danger"
+        >
+            🗑️ Excluir
+        </button>
 
-                selecionarProduto(index);
+        <button
+            id="closePanel"
+            class="gray"
+        >
+            Fechar
+        </button>
 
-            };
+    </div>
 
 
-            locationsContainer.appendChild(button);
+    <div id="status">
+        Carregando estoque...
+    </div>
 
-        });
+</div>
 
 
-        /*
-        ============================================================
-        SELECIONAR PRODUTO
-        ============================================================
-        */
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-        function selecionarProduto(index) {
 
-            const item = estoque[index];
+<script type="importmap">
 
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    }
+}
 
-            /*
-            Atualiza informações
-            */
+</script>
 
-            document.getElementById("produtoNome")
-                .textContent = item.produto;
 
+<script type="module">
 
-            document.getElementById("produtoLocal")
-                .textContent = item.local;
+import * as THREE
+from "three";
 
+import {
+    OrbitControls
+}
+from "three/addons/controls/OrbitControls.js";
 
-            document.getElementById("produtoQuantidade")
-                .textContent = item.quantidade;
+import {
+    GLTFLoader
+}
+from "three/addons/loaders/GLTFLoader.js";
 
 
-            document.getElementById("produtoCodigo")
-                .textContent = item.codigo;
+// ======================================================
+// SUPABASE
+// ======================================================
 
+// COLOQUE AQUI A URL DO SEU PROJETO
+const SUPABASE_URL =
+    "https://aoqrymkgxllxetpsbpij.supabase.co/rest/v1/";
 
-            document.getElementById("produtoStatus")
-                .textContent = item.status;
+// COLOQUE AQUI A PUBLISHABLE KEY
+const SUPABASE_KEY =
+    "sb_publishable_HxiRQDQvkyT204_EQY8L8Q_cMBgPyEx";
 
+const supabaseClient =
+    supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
 
-            /*
-            Remove seleção anterior
-            */
 
-            const buttons =
-                document.querySelectorAll(".location-button");
+// ======================================================
+// THREE.JS
+// ======================================================
 
+const viewer =
+    document.getElementById("viewer");
 
-            buttons.forEach(button => {
+const scene =
+    new THREE.Scene();
 
-                button.classList.remove("active");
+scene.background =
+    new THREE.Color(0x202020);
 
-            });
 
+const camera =
+    new THREE.PerspectiveCamera(
+        50,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        5000
+    );
 
-            /*
-            Seleciona o botão atual
-            */
+camera.position.set(
+    20,
+    20,
+    20
+);
 
-            buttons[index].classList.add("active");
 
+const renderer =
+    new THREE.WebGLRenderer({
+        antialias: true
+    });
 
-            /*
-            Muda a cor da quantidade
-            */
+renderer.setPixelRatio(
+    window.devicePixelRatio
+);
 
-            const quantidade =
-                document.getElementById("produtoQuantidade");
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
 
+viewer.appendChild(renderer.domElement);
 
-            if (item.quantidade === 0) {
 
-                quantidade.style.color = "#ef4444";
+// ======================================================
+// CONTROLES
+// ======================================================
 
-            }
+const controls =
+    new OrbitControls(
+        camera,
+        renderer.domElement
+    );
 
-            else if (item.quantidade <= 5) {
+controls.enableDamping = true;
 
-                quantidade.style.color = "#f59e0b";
+controls.target.set(
+    0,
+    0,
+    0
+);
 
-            }
 
-            else {
+// ======================================================
+// LUZ
+// ======================================================
 
-                quantidade.style.color = "#22c55e";
+const ambient =
+    new THREE.AmbientLight(
+        0xffffff,
+        2
+    );
 
-            }
+scene.add(ambient);
 
-        }
 
+const directional =
+    new THREE.DirectionalLight(
+        0xffffff,
+        3
+    );
 
-        /*
-        ============================================================
-        TELA CHEIA
-        ============================================================
-        */
+directional.position.set(
+    20,
+    40,
+    20
+);
 
-        function fullscreenViewer() {
+scene.add(directional);
 
-            const viewer =
-                document.getElementById("modelo3d");
 
+// ======================================================
+// MODELO 3D
+// ======================================================
 
-            if (viewer.requestFullscreen) {
+const loader =
+    new GLTFLoader();
 
-                viewer.requestFullscreen();
+let model = null;
 
-            }
+loader.load(
 
-            else if (viewer.webkitRequestFullscreen) {
+    "estoque.glb",
 
-                viewer.webkitRequestFullscreen();
+    function(gltf) {
 
-            }
+        model = gltf.scene;
 
-        }
+        scene.add(model);
 
+        // Centraliza o modelo automaticamente
 
-        /*
-        ============================================================
-        QUANDO O MODELO TERMINAR DE CARREGAR
-        ============================================================
-        */
+        const box =
+            new THREE.Box3()
+            .setFromObject(model);
 
-        const viewer =
-            document.getElementById("modelo3d");
-
-
-        viewer.addEventListener("load", () => {
-
-            console.log("Modelo 3D carregado com sucesso!");
-
-        });
-
-
-        /*
-        ============================================================
-        ERRO AO CARREGAR O MODELO
-        ============================================================
-        */
-
-        viewer.addEventListener("error", (error) => {
-
-            console.error(
-                "Erro ao carregar o modelo 3D:",
-                error
+        const center =
+            box.getCenter(
+                new THREE.Vector3()
             );
 
+        model.position.sub(center);
+
+
+        const size =
+            box.getSize(
+                new THREE.Vector3()
+            );
+
+        const maxSize =
+            Math.max(
+                size.x,
+                size.y,
+                size.z
+            );
+
+
+        camera.position.set(
+            maxSize * 1.3,
+            maxSize * 1.0,
+            maxSize * 1.3
+        );
+
+        controls.target.set(
+            0,
+            0,
+            0
+        );
+
+        controls.update();
+
+
+        setStatus(
+            "Modelo 3D carregado."
+        );
+
+    },
+
+    undefined,
+
+    function(error) {
+
+        console.error(error);
+
+        setStatus(
+            "Erro ao carregar estoque.glb"
+        );
+
+    }
+
+);
+
+
+// ======================================================
+// MARCADORES
+// ======================================================
+
+const markerContainer =
+    document.createElement("div");
+
+markerContainer.style.position =
+    "absolute";
+
+markerContainer.style.left = "0";
+
+markerContainer.style.top = "0";
+
+markerContainer.style.width = "100%";
+
+markerContainer.style.height = "100%";
+
+markerContainer.style.pointerEvents =
+    "none";
+
+viewer.appendChild(
+    markerContainer
+);
+
+
+let markers = [];
+
+let selectedMarker = null;
+
+
+// ======================================================
+// CARREGAR MARCADORES
+// ======================================================
+
+async function loadMarkers() {
+
+    const {
+        data,
+        error
+    } = await supabaseClient
+        .from("markers")
+        .select("*")
+        .order("criado_em");
+
+
+    if (error) {
+
+        console.error(error);
+
+        setStatus(
+            "Erro ao carregar marcadores."
+        );
+
+        return;
+    }
+
+
+    markers = data || [];
+
+    renderMarkers();
+
+    setStatus(
+        `${markers.length} caixas carregadas.`
+    );
+}
+
+
+// ======================================================
+// DESENHAR MARCADORES
+// ======================================================
+
+function renderMarkers() {
+
+    markerContainer.innerHTML = "";
+
+
+    for (const marker of markers) {
+
+        const element =
+            document.createElement("div");
+
+        element.className =
+            "marker";
+
+        element.style.pointerEvents =
+            "auto";
+
+
+        element.title =
+            marker.nome;
+
+
+        element.addEventListener(
+            "click",
+            function(event) {
+
+                event.stopPropagation();
+
+                selectMarker(marker);
+
+            }
+        );
+
+
+        markerContainer.appendChild(
+            element
+        );
+
+
+        marker.element =
+            element;
+    }
+}
+
+
+// ======================================================
+// POSIÇÃO DOS MARCADORES NA TELA
+// ======================================================
+
+function updateMarkerPositions() {
+
+    for (const marker of markers) {
+
+        if (!marker.element)
+            continue;
+
+
+        const position =
+            new THREE.Vector3(
+                marker.pos_x,
+                marker.pos_y,
+                marker.pos_z
+            );
+
+
+        position.project(camera);
+
+
+        const x =
+            (position.x * .5 + .5)
+            * window.innerWidth;
+
+
+        const y =
+            (-position.y * .5 + .5)
+            * window.innerHeight;
+
+
+        marker.element.style.left =
+            `${x}px`;
+
+
+        marker.element.style.top =
+            `${y}px`;
+
+
+        // Esconder se estiver atrás da câmera
+
+        if (position.z > 1) {
+
+            marker.element.style.display =
+                "none";
+
+        } else {
+
+            marker.element.style.display =
+                "block";
+
+        }
+
+    }
+}
+
+
+// ======================================================
+// SELECIONAR MARCADOR
+// ======================================================
+
+function selectMarker(marker) {
+
+    selectedMarker =
+        marker;
+
+
+    document.getElementById(
+        "markerName"
+    ).value =
+        marker.nome || "";
+
+
+    document.getElementById(
+        "markerSku"
+    ).value =
+        marker.sku || "";
+
+
+    document.getElementById(
+        "markerSize"
+    ).value =
+        marker.tamanho || "";
+
+
+    document.getElementById(
+        "markerDescription"
+    ).value =
+        marker.descricao || "";
+
+
+    const preview =
+        document.getElementById(
+            "photoPreview"
+        );
+
+
+    if (marker.foto_url) {
+
+        preview.src =
+            marker.foto_url;
+
+        preview.style.display =
+            "block";
+
+    } else {
+
+        preview.style.display =
+            "none";
+
+    }
+
+
+    document.getElementById(
+        "panel"
+    ).style.display =
+        "block";
+}
+
+
+// ======================================================
+// NOVA CAIXA
+// ======================================================
+
+document.getElementById(
+    "newMarker"
+).addEventListener(
+    "click",
+    async function() {
+
+        const {
+            data: {
+                user
+            }
+        } =
+        await supabaseClient
+        .auth
+        .getUser();
+
+
+        if (!user) {
+
+            alert(
+                "Você precisa fazer login para criar uma caixa."
+            );
+
+            return;
+        }
+
+
+        // cria no centro do estoque
+
+        const {
+            data,
+            error
+        } =
+        await supabaseClient
+        .from("markers")
+        .insert({
+
+            nome:
+                "Nova caixa",
+
+            pos_x: 0,
+
+            pos_y: 1,
+
+            pos_z: 0
+
+        })
+        .select()
+        .single();
+
+
+        if (error) {
+
+            console.error(error);
+
+            alert(
+                "Erro ao criar marcador."
+            );
+
+            return;
+        }
+
+
+        markers.push(data);
+
+        renderMarkers();
+
+        selectMarker(data);
+
+    }
+);
+
+
+// ======================================================
+// SALVAR
+// ======================================================
+
+document.getElementById(
+    "saveMarker"
+).addEventListener(
+    "click",
+    async function() {
+
+        if (!selectedMarker)
+            return;
+
+
+        const updates = {
+
+            nome:
+                document.getElementById(
+                    "markerName"
+                ).value,
+
+            sku:
+                document.getElementById(
+                    "markerSku"
+                ).value,
+
+            tamanho:
+                document.getElementById(
+                    "markerSize"
+                ).value,
+
+            descricao:
+                document.getElementById(
+                    "markerDescription"
+                ).value
+
+        };
+
+
+        // ==================================================
+        // UPLOAD DA FOTO
+        // ==================================================
+
+        const file =
+            document.getElementById(
+                "photo"
+            ).files[0];
+
+
+        if (file) {
+
+            const extension =
+                file.name
+                .split(".")
+                .pop();
+
+
+            const filename =
+                `${selectedMarker.id}-${Date.now()}.${extension}`;
+
+
+            const {
+                error: uploadError
+            } =
+            await supabaseClient
+            .storage
+            .from("estoque-fotos")
+            .upload(
+                filename,
+                file,
+                {
+                    contentType:
+                        file.type
+                }
+            );
+
+
+            if (uploadError) {
+
+                console.error(
+                    uploadError
+                );
+
+                alert(
+                    "Erro ao enviar foto."
+                );
+
+                return;
+            }
+
+
+            const {
+                data
+            } =
+            supabaseClient
+            .storage
+            .from("estoque-fotos")
+            .getPublicUrl(
+                filename
+            );
+
+
+            updates.foto_url =
+                data.publicUrl;
+        }
+
+
+        // ==================================================
+        // ATUALIZAR BANCO
+        // ==================================================
+
+        const {
+            data,
+            error
+        } =
+        await supabaseClient
+        .from("markers")
+        .update(updates)
+        .eq(
+            "id",
+            selectedMarker.id
+        )
+        .select()
+        .single();
+
+
+        if (error) {
+
+            console.error(error);
+
+            alert(
+                "Erro ao salvar."
+            );
+
+            return;
+        }
+
+
+        Object.assign(
+            selectedMarker,
+            data
+        );
+
+
+        renderMarkers();
+
+        selectMarker(
+            selectedMarker
+        );
+
+
+        setStatus(
+            "Caixa salva!"
+        );
+
+    }
+);
+
+
+// ======================================================
+// EXCLUIR
+// ======================================================
+
+document.getElementById(
+    "deleteMarker"
+).addEventListener(
+    "click",
+    async function() {
+
+        if (!selectedMarker)
+            return;
+
+
+        if (!confirm(
+            "Excluir esta caixa?"
+        ))
+            return;
+
+
+        const {
+            error
+        } =
+        await supabaseClient
+        .from("markers")
+        .delete()
+        .eq(
+            "id",
+            selectedMarker.id
+        );
+
+
+        if (error) {
+
+            console.error(error);
+
+            alert(
+                "Erro ao excluir."
+            );
+
+            return;
+        }
+
+
+        markers =
+            markers.filter(
+                m =>
+                    m.id !==
+                    selectedMarker.id
+            );
+
+
+        selectedMarker =
+            null;
+
+
+        renderMarkers();
+
+
+        document.getElementById(
+            "panel"
+        ).style.display =
+            "none";
+
+
+        setStatus(
+            "Caixa excluída."
+        );
+
+    }
+);
+
+
+// ======================================================
+// FECHAR PAINEL
+// ======================================================
+
+document.getElementById(
+    "closePanel"
+).addEventListener(
+    "click",
+    function() {
+
+        document.getElementById(
+            "panel"
+        ).style.display =
+            "none";
+
+        selectedMarker =
+            null;
+
+    }
+);
+
+
+// ======================================================
+// LOGIN
+// ======================================================
+
+document.getElementById(
+    "loginButton"
+).addEventListener(
+    "click",
+    function() {
+
+        document.getElementById(
+            "login"
+        ).style.display =
+            "block";
+
+    }
+);
+
+
+document.getElementById(
+    "doLogin"
+).addEventListener(
+    "click",
+    async function() {
+
+        const email =
+            document.getElementById(
+                "email"
+            ).value;
+
+        const password =
+            document.getElementById(
+                "password"
+            ).value;
+
+
+        const {
+            error
+        } =
+        await supabaseClient
+        .auth
+        .signInWithPassword({
+            email,
+            password
         });
 
-    </script>
+
+        if (error) {
+
+            document.getElementById(
+                "loginStatus"
+            ).textContent =
+                error.message;
+
+            return;
+        }
+
+
+        document.getElementById(
+            "login"
+        ).style.display =
+            "none";
+
+
+        updateAuthUI();
+
+    }
+);
+
+
+// ======================================================
+// LOGOUT
+// ======================================================
+
+document.getElementById(
+    "logoutButton"
+).addEventListener(
+    "click",
+    async function() {
+
+        await supabaseClient
+            .auth
+            .signOut();
+
+        updateAuthUI();
+
+    }
+);
+
+
+// ======================================================
+// AUTH UI
+// ======================================================
+
+async function updateAuthUI() {
+
+    const {
+        data: {
+            user
+        }
+    } =
+    await supabaseClient
+        .auth
+        .getUser();
+
+
+    document.getElementById(
+        "loginButton"
+    ).style.display =
+        user
+            ? "none"
+            : "block";
+
+
+    document.getElementById(
+        "logoutButton"
+    ).style.display =
+        user
+            ? "block"
+            : "none";
+
+
+    document.getElementById(
+        "newMarker"
+    ).style.display =
+        user
+            ? "block"
+            : "none";
+
+}
+
+
+supabaseClient
+    .auth
+    .onAuthStateChange(
+        function() {
+
+            updateAuthUI();
+
+        }
+    );
+
+
+// ======================================================
+// REALTIME
+// ======================================================
+
+supabaseClient
+.channel("estoque-realtime")
+
+.on(
+    "postgres_changes",
+    {
+        event: "*",
+        schema: "public",
+        table: "markers"
+    },
+    function(payload) {
+
+        console.log(
+            "Alteração:",
+            payload
+        );
+
+
+        loadMarkers();
+
+    }
+)
+
+.subscribe();
+
+
+// ======================================================
+// BUSCA
+// ======================================================
+
+document.getElementById(
+    "search"
+).addEventListener(
+    "input",
+    function() {
+
+        const search =
+            this.value
+            .toLowerCase()
+            .trim();
+
+
+        for (const marker of markers) {
+
+            const text =
+                `${marker.nome}
+                ${marker.sku}
+                ${marker.tamanho}
+                ${marker.descricao}`
+                .toLowerCase();
+
+
+            if (
+                !search ||
+                text.includes(search)
+            ) {
+
+                marker.element.style.display =
+                    "block";
+
+            } else {
+
+                marker.element.style.display =
+                    "none";
+
+            }
+
+        }
+
+    }
+);
+
+
+// ======================================================
+// STATUS
+// ======================================================
+
+function setStatus(text) {
+
+    document.getElementById(
+        "status"
+    ).textContent =
+        text;
+
+}
+
+
+// ======================================================
+// ANIMAÇÃO
+// ======================================================
+
+function animate() {
+
+    requestAnimationFrame(
+        animate
+    );
+
+
+    controls.update();
+
+    updateMarkerPositions();
+
+
+    renderer.render(
+        scene,
+        camera
+    );
+
+}
+
+animate();
+
+
+// ======================================================
+// RESPONSIVO
+// ======================================================
+
+window.addEventListener(
+    "resize",
+    function() {
+
+        camera.aspect =
+            window.innerWidth /
+            window.innerHeight;
+
+        camera.updateProjectionMatrix();
+
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+
+    }
+);
+
+
+// ======================================================
+// INICIALIZAÇÃO
+// ======================================================
+
+loadMarkers();
+
+updateAuthUI();
+
+</script>
 
 </body>
+
 </html>
