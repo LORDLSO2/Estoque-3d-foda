@@ -1,2752 +1,448 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Estoque 3D</title>
-
 <style>
-
-* {
-    box-sizing: border-box;
+*{box-sizing:border-box}
+html,body,#app{margin:0;width:100%;height:100%;overflow:hidden;font-family:Arial,sans-serif;background:#151515;color:#fff}
+#viewer{position:absolute;inset:0}
+#viewer canvas{display:block}
+#topbar{position:absolute;z-index:20;top:12px;left:12px;right:12px;display:flex;gap:8px;align-items:center;padding:10px 12px;background:rgba(20,20,20,.92);border-radius:12px;backdrop-filter:blur(8px)}
+h1{font-size:17px;margin:0 auto 0 0}
+button,input,textarea{font:inherit}
+button{border:0;border-radius:8px;padding:9px 12px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}
+button.gray{background:#444}
+button.red{background:#dc2626}
+input,textarea{width:100%;background:#222;color:#fff;border:1px solid #444;border-radius:8px;padding:9px;outline:0}
+#search{width:220px}
+#panel,#login{display:none;position:absolute;z-index:30;right:12px;top:72px;width:340px;max-height:calc(100vh - 84px);overflow:auto;padding:16px;background:rgba(20,20,20,.97);border-radius:12px;box-shadow:0 12px 40px #0008}
+#panel h2,#login h2{margin:0 0 12px}
+#panel>*{margin-bottom:9px}
+#panel textarea{min-height:90px;resize:vertical}
+#photoPreview{display:none;width:100%;max-height:230px;object-fit:contain;border-radius:8px;background:#111}
+#status,#selectedInfo{position:absolute;z-index:25;bottom:12px;padding:8px 11px;background:#000b;border-radius:8px;font-size:12px;pointer-events:none}
+#status{left:12px}.selectedInfo{right:12px}
+#selectedInfo{right:12px}
+#markers{position:absolute;inset:0;z-index:10;pointer-events:none}
+.marker{position:absolute;width:24px;height:24px;transform:translate(-50%,-50%);border:3px solid #fff;border-radius:50%;background:#ef4444;box-shadow:0 0 14px #ef4444;pointer-events:auto;cursor:grab;touch-action:none}
+.marker.selected{background:#22c55e;box-shadow:0 0 18px #22c55e;transform:translate(-50%,-50%) scale(1.25)}
+.marker.dragging{background:#f59e0b;cursor:grabbing}
+.small{font-size:12px;color:#aaa}
+@media(max-width:700px){
+ #topbar{flex-wrap:wrap}.topTitle{width:100%}#search{flex:1;width:auto}
+ #panel,#login{left:8px;right:8px;width:auto;top:115px}
 }
-
-html,
-body {
-    margin: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    font-family: Arial, Helvetica, sans-serif;
-    background: #111;
-    color: white;
-}
-
-#app {
-    width: 100vw;
-    height: 100vh;
-    position: relative;
-}
-
-#viewer {
-    position: absolute;
-    inset: 0;
-}
-
-#viewer canvas {
-    display: block;
-}
-
-/* =========================================================
-   BARRA SUPERIOR
-========================================================= */
-
-#topbar {
-
-    position: absolute;
-
-    top: 15px;
-    left: 15px;
-    right: 15px;
-
-    z-index: 50;
-
-    display: flex;
-    align-items: center;
-
-    gap: 10px;
-
-    padding: 12px 15px;
-
-    background: rgba(20,20,20,.94);
-
-    border-radius: 12px;
-
-    backdrop-filter: blur(10px);
-
-    box-shadow: 0 5px 25px rgba(0,0,0,.3);
-}
-
-#topbar h1 {
-
-    margin: 0;
-
-    font-size: 18px;
-
-    margin-right: auto;
-
-    white-space: nowrap;
-}
-
-button {
-
-    border: none;
-
-    border-radius: 8px;
-
-    padding: 10px 14px;
-
-    cursor: pointer;
-
-    background: #2563eb;
-
-    color: white;
-
-    font-weight: bold;
-
-    transition: .15s;
-}
-
-button:hover {
-    filter: brightness(1.15);
-}
-
-button:active {
-    transform: scale(.97);
-}
-
-button.gray {
-    background: #444;
-}
-
-button.danger {
-    background: #dc2626;
-}
-
-#search {
-
-    width: 220px;
-
-    padding: 9px 12px;
-
-    border-radius: 8px;
-
-    border: 1px solid #444;
-
-    background: #222;
-
-    color: white;
-
-    outline: none;
-}
-
-#search:focus {
-    border-color: #2563eb;
-}
-
-/* =========================================================
-   LOGIN
-========================================================= */
-
-#login {
-
-    position: absolute;
-
-    top: 80px;
-    right: 15px;
-
-    z-index: 100;
-
-    width: 310px;
-
-    padding: 20px;
-
-    background: rgba(20,20,20,.97);
-
-    border-radius: 12px;
-
-    display: none;
-
-    box-shadow: 0 10px 40px rgba(0,0,0,.5);
-}
-
-#login h2 {
-    margin-top: 0;
-}
-
-#login input {
-
-    width: 100%;
-
-    padding: 10px;
-
-    margin-bottom: 10px;
-
-    border-radius: 7px;
-
-    border: 1px solid #444;
-
-    background: #222;
-
-    color: white;
-}
-
-/* =========================================================
-   PAINEL
-========================================================= */
-
-#panel {
-
-    position: absolute;
-
-    top: 80px;
-    right: 15px;
-
-    width: 340px;
-
-    max-height: calc(100vh - 100px);
-
-    overflow-y: auto;
-
-    z-index: 60;
-
-    background: rgba(20,20,20,.97);
-
-    border-radius: 12px;
-
-    padding: 18px;
-
-    display: none;
-
-    box-shadow: 0 10px 40px rgba(0,0,0,.5);
-}
-
-#panel h2 {
-    margin-top: 0;
-}
-
-#panel input,
-#panel textarea {
-
-    width: 100%;
-
-    margin-bottom: 10px;
-
-    padding: 10px;
-
-    border-radius: 7px;
-
-    border: 1px solid #444;
-
-    background: #222;
-
-    color: white;
-
-    outline: none;
-}
-
-#panel input:focus,
-#panel textarea:focus {
-    border-color: #2563eb;
-}
-
-#panel textarea {
-
-    resize: vertical;
-
-    min-height: 90px;
-}
-
-#panel label {
-    display: block;
-    margin-bottom: 10px;
-}
-
-#photo {
-    margin-top: 7px;
-    width: 100%;
-}
-
-#photoPreview {
-
-    width: 100%;
-
-    max-height: 250px;
-
-    object-fit: contain;
-
-    border-radius: 8px;
-
-    margin-top: 8px;
-
-    display: none;
-
-    background: #111;
-}
-
-/* =========================================================
-   MARCADORES
-========================================================= */
-
-#markerContainer {
-
-    position: absolute;
-
-    inset: 0;
-
-    z-index: 20;
-
-    pointer-events: none;
-}
-
-.marker {
-
-    width: 24px;
-    height: 24px;
-
-    border-radius: 50%;
-
-    background: #ef4444;
-
-    border: 3px solid white;
-
-    box-shadow:
-        0 0 12px rgba(239,68,68,.9),
-        0 0 25px rgba(239,68,68,.5);
-
-    cursor: grab;
-
-    position: absolute;
-
-    transform: translate(-50%, -50%);
-
-    pointer-events: auto;
-
-    touch-action: none;
-
-    transition:
-        transform .12s,
-        background .12s,
-        box-shadow .12s;
-}
-
-.marker:hover {
-
-    transform:
-        translate(-50%, -50%)
-        scale(1.25);
-}
-
-.marker.selected {
-
-    background: #22c55e;
-
-    box-shadow:
-        0 0 15px rgba(34,197,94,1),
-        0 0 30px rgba(34,197,94,.7);
-
-    transform:
-        translate(-50%, -50%)
-        scale(1.3);
-}
-
-.marker.dragging {
-
-    cursor: grabbing;
-
-    background: #f59e0b;
-
-    transform:
-        translate(-50%, -50%)
-        scale(1.35);
-}
-
-/* =========================================================
-   STATUS
-========================================================= */
-
-#status {
-
-    position: absolute;
-
-    bottom: 15px;
-    left: 15px;
-
-    z-index: 80;
-
-    padding: 8px 12px;
-
-    border-radius: 8px;
-
-    background: rgba(0,0,0,.75);
-
-    font-size: 13px;
-
-    pointer-events: none;
-}
-
-.small {
-
-    color: #aaa;
-
-    font-size: 12px;
-
-    margin-bottom: 10px;
-}
-
-/* =========================================================
-   INFO DE SELEÇÃO
-========================================================= */
-
-#selected3d {
-
-    position: absolute;
-
-    bottom: 15px;
-    right: 15px;
-
-    z-index: 80;
-
-    padding: 8px 12px;
-
-    border-radius: 8px;
-
-    background: rgba(0,0,0,.75);
-
-    font-size: 12px;
-
-    color: #ddd;
-
-    pointer-events: none;
-}
-
-/* =========================================================
-   MOBILE
-========================================================= */
-
-@media (max-width: 700px) {
-
-    #topbar {
-
-        flex-wrap: wrap;
-
-        left: 8px;
-        right: 8px;
-        top: 8px;
-    }
-
-    #topbar h1 {
-
-        width: 100%;
-
-        margin-right: 0;
-    }
-
-    #search {
-
-        flex: 1;
-
-        width: auto;
-    }
-
-    #panel {
-
-        top: 75px;
-
-        left: 8px;
-        right: 8px;
-
-        width: auto;
-
-        max-height: calc(100vh - 85px);
-    }
-
-    #login {
-
-        top: 75px;
-
-        left: 8px;
-        right: 8px;
-
-        width: auto;
-    }
-
-}
-
 </style>
 </head>
-
 <body>
-
 <div id="app">
+  <div id="viewer"></div>
+  <div id="markers"></div>
 
-    <div id="viewer"></div>
+  <div id="topbar">
+    <h1 class="topTitle">📦 Estoque 3D</h1>
+    <input id="search" placeholder="🔎 Procurar caixa...">
+    <button id="newMarker">+ Nova caixa</button>
+    <button id="loginBtn" class="gray">🔐 Login</button>
+    <button id="logoutBtn" class="gray" style="display:none">Sair</button>
+  </div>
 
-    <div id="markerContainer"></div>
+  <div id="login">
+    <h2>🔐 Login</h2>
+    <input id="email" type="email" placeholder="E-mail">
+    <input id="password" type="password" placeholder="Senha">
+    <button id="doLogin">Entrar</button>
+    <p id="loginStatus" class="small"></p>
+  </div>
 
-    <!-- =====================================================
-         TOPBAR
-    ====================================================== -->
-
-    <div id="topbar">
-
-        <h1>📦 Estoque 3D</h1>
-
-        <input
-            id="search"
-            type="text"
-            placeholder="🔎 Procurar caixa..."
-        >
-
-        <button id="newMarker">
-            + Nova caixa
-        </button>
-
-        <button
-            id="loginButton"
-            class="gray"
-        >
-            🔐 Login
-        </button>
-
-        <button
-            id="logoutButton"
-            class="gray"
-            style="display:none"
-        >
-            Sair
-        </button>
-
+  <div id="panel">
+    <h2>📦 Caixa</h2>
+    <input id="name" placeholder="Nome / Produto">
+    <input id="sku" placeholder="SKU">
+    <input id="size" placeholder="Tamanho">
+    <textarea id="description" placeholder="Descrição"></textarea>
+    <label class="small">📷 Foto
+      <input id="photo" type="file" accept="image/*">
+    </label>
+    <img id="photoPreview">
+    <div>
+      <button id="save">💾 Salvar</button>
+      <button id="delete" class="red">🗑️ Excluir</button>
+      <button id="close" class="gray">Fechar</button>
     </div>
+  </div>
 
-    <!-- =====================================================
-         LOGIN
-    ====================================================== -->
-
-    <div id="login">
-
-        <h2>🔐 Login</h2>
-
-        <input
-            id="email"
-            type="email"
-            placeholder="E-mail"
-        >
-
-        <input
-            id="password"
-            type="password"
-            placeholder="Senha"
-        >
-
-        <button id="doLogin">
-            Entrar
-        </button>
-
-        <p
-            id="loginStatus"
-            class="small"
-        ></p>
-
-    </div>
-
-    <!-- =====================================================
-         PAINEL DA CAIXA
-    ====================================================== -->
-
-    <div id="panel">
-
-        <h2>📦 Caixa</h2>
-
-        <div class="small">
-            Informações da caixa
-        </div>
-
-        <input
-            id="markerName"
-            placeholder="Nome / Produto"
-        >
-
-        <input
-            id="markerSku"
-            placeholder="SKU"
-        >
-
-        <input
-            id="markerSize"
-            placeholder="Tamanho"
-        >
-
-        <textarea
-            id="markerDescription"
-            placeholder="Descrição"
-        ></textarea>
-
-        <label>
-
-            <strong>📷 Foto da caixa</strong>
-
-            <input
-                id="photo"
-                type="file"
-                accept="image/*"
-            >
-
-        </label>
-
-        <img
-            id="photoPreview"
-        >
-
-        <br>
-
-        <button id="saveMarker">
-            💾 Salvar
-        </button>
-
-        <button
-            id="deleteMarker"
-            class="danger"
-        >
-            🗑️ Excluir
-        </button>
-
-        <button
-            id="closePanel"
-            class="gray"
-        >
-            Fechar
-        </button>
-
-    </div>
-
-    <div id="status">
-        Carregando estoque...
-    </div>
-
-    <div id="selected3d">
-        Nenhuma caixa 3D selecionada
-    </div>
-
+  <div id="status">Inicializando...</div>
+  <div id="selectedInfo">Nenhuma caixa 3D selecionada</div>
 </div>
 
-
-<!-- =========================================================
-     SUPABASE
-========================================================= -->
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-
-<!-- =========================================================
-     THREE.JS IMPORT MAP
-========================================================= -->
-
 <script type="importmap">
-{
-    "imports": {
-        "three":
-            "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
-
-        "three/addons/":
-            "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
-    }
-}
+{"imports":{
+ "three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+ "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+}}
 </script>
-
 
 <script type="module">
-
 import * as THREE from "three";
+import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 
-import {
-    OrbitControls
-} from "three/addons/controls/OrbitControls.js";
+const SUPABASE_URL="https://aoqrymkgxllxetpsbpij.supabase.co";
+const SUPABASE_KEY="sb_publishable_HxiRQDQvkyT204_EQY8L8Q_cMBgPyEx";
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-import {
-    GLTFLoader
-} from "three/addons/loaders/GLTFLoader.js";
+const $=id=>document.getElementById(id);
+const status=$("status");
+const setStatus=t=>status.textContent=t;
 
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x202020);
 
-// =========================================================
-// SUPABASE
-// =========================================================
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.01,10000);
+camera.position.set(10,10,10);
 
-const SUPABASE_URL =
-    "https://aoqrymkgxllxetpsbpij.supabase.co";
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+$("viewer").appendChild(renderer.domElement);
 
-const SUPABASE_KEY =
-    "sb_publishable_HxiRQDQvkyT204_EQY8L8Q_cMBgPyEx";
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;
+controls.dampingFactor=.08;
+controls.minDistance=.05;
 
-const supabaseClient =
-    supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_KEY
-    );
+scene.add(new THREE.HemisphereLight(0xffffff,0x444444,2.2));
+const dl=new THREE.DirectionalLight(0xffffff,3);
+dl.position.set(20,40,20);
+scene.add(dl);
 
+let model=null;
+let selectedMesh=null;
+let outline=null;
 
-// =========================================================
-// ELEMENTOS HTML
-// =========================================================
+const raycaster=new THREE.Raycaster();
+const mouse=new THREE.Vector2();
 
-const viewer =
-    document.getElementById("viewer");
-
-const markerContainer =
-    document.getElementById("markerContainer");
-
-const statusElement =
-    document.getElementById("status");
-
-const panel =
-    document.getElementById("panel");
-
-const selected3dElement =
-    document.getElementById("selected3d");
-
-
-// =========================================================
-// STATUS
-// =========================================================
-
-function setStatus(text) {
-
-    statusElement.textContent = text;
-
+function clearMeshSelection(){
+  if(outline){
+    if(outline.parent) outline.parent.remove(outline);
+    outline.geometry?.dispose();
+    outline.material?.dispose();
+    outline=null;
+  }
+  selectedMesh=null;
+  $("selectedInfo").textContent="Nenhuma caixa 3D selecionada";
 }
 
+function selectMesh(mesh){
+  clearMeshSelection();
+  selectedMesh=mesh;
+  if(mesh.geometry){
+    const edges=new THREE.EdgesGeometry(mesh.geometry,20);
+    outline=new THREE.LineSegments(edges,new THREE.LineBasicMaterial({color:0xffff00,depthTest:false}));
+    outline.renderOrder=999;
+    mesh.add(outline);
+  }
+  $("selectedInfo").textContent="📦 "+(mesh.name||"Mesh sem nome");
+  setStatus("Caixa 3D selecionada.");
+}
 
-// =========================================================
-// THREE.JS
-// =========================================================
+function pointerToNdc(e){
+  const r=renderer.domElement.getBoundingClientRect();
+  mouse.x=((e.clientX-r.left)/r.width)*2-1;
+  mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+}
 
-const scene =
-    new THREE.Scene();
+renderer.domElement.addEventListener("pointerdown",e=>{
+  if(dragging)return;
+  pointerToNdc(e);
+  raycaster.setFromCamera(mouse,camera);
+  if(!model)return;
+  const hits=raycaster.intersectObject(model,true);
+  const hit=hits.find(x=>x.object?.isMesh);
+  if(hit) selectMesh(hit.object);
+  else clearMeshSelection();
+});
 
-scene.background =
-    new THREE.Color(0x202020);
+const loader=new GLTFLoader();
+const modelUrl=new URL("./estoque.glb",location.href).href;
 
+loader.load(modelUrl,gltf=>{
+  model=gltf.scene;
+  scene.add(model);
 
-const camera =
-    new THREE.PerspectiveCamera(
-        50,
-        window.innerWidth /
-        window.innerHeight,
-        0.1,
-        5000
-    );
+  const box=new THREE.Box3().setFromObject(model);
+  const center=box.getCenter(new THREE.Vector3());
+  model.position.sub(center);
 
-camera.position.set(
-    20,
-    20,
-    20
-);
+  const b2=new THREE.Box3().setFromObject(model);
+  const size=b2.getSize(new THREE.Vector3());
+  const max=Math.max(size.x,size.y,size.z)||10;
 
+  camera.position.set(max*1.25,max*.85,max*1.25);
+  controls.target.set(0,0,0);
+  controls.update();
 
-const renderer =
-    new THREE.WebGLRenderer({
-        antialias: true
+  let meshes=0;
+  model.traverse(o=>{if(o.isMesh)meshes++});
+  setStatus(`Modelo carregado — ${meshes} objetos selecionáveis.`);
+},xhr=>{
+  if(xhr.total)setStatus(`Carregando estoque... ${Math.round(xhr.loaded/xhr.total*100)}%`);
+},err=>{
+  console.error("GLB ERROR:",err);
+  setStatus("❌ Não foi possível carregar estoque.glb");
+  alert("Não consegui carregar o estoque.glb. Abra o Console (F12) se precisar ver o erro.");
+});
+
+let markers=[];
+let selectedMarker=null;
+let dragging=false;
+let dragData=null;
+let dragPlane=null;
+
+function renderMarkers(){
+  $("markers").innerHTML="";
+  for(const m of markers){
+    const el=document.createElement("div");
+    el.className="marker";
+    el.title=m.nome||"Caixa";
+    if(selectedMarker?.id===m.id)el.classList.add("selected");
+
+    el.addEventListener("pointerdown",e=>{
+      e.preventDefault();e.stopPropagation();
+      selectMarker(m);
+      startDrag(m,el,e);
     });
-
-renderer.setPixelRatio(
-    Math.min(
-        window.devicePixelRatio,
-        2
-    )
-);
-
-renderer.setSize(
-    window.innerWidth,
-    window.innerHeight
-);
-
-viewer.appendChild(
-    renderer.domElement
-);
-
-
-// =========================================================
-// CONTROLES
-// =========================================================
-
-const controls =
-    new OrbitControls(
-        camera,
-        renderer.domElement
-    );
-
-controls.enableDamping = true;
-
-controls.dampingFactor = 0.08;
-
-controls.target.set(
-    0,
-    0,
-    0
-);
-
-
-// =========================================================
-// LUZES
-// =========================================================
-
-const ambient =
-    new THREE.AmbientLight(
-        0xffffff,
-        2
-    );
-
-scene.add(
-    ambient
-);
-
-
-const directional =
-    new THREE.DirectionalLight(
-        0xffffff,
-        3
-    );
-
-directional.position.set(
-    20,
-    40,
-    20
-);
-
-scene.add(
-    directional
-);
-
-
-// =========================================================
-// MODELO
-// =========================================================
-
-const loader =
-    new GLTFLoader();
-
-let model = null;
-
-
-// =========================================================
-// SELEÇÃO 3D
-// =========================================================
-
-const raycaster =
-    new THREE.Raycaster();
-
-const mouse =
-    new THREE.Vector2();
-
-let selectedObject3D = null;
-
-let selectionOutline = null;
-
-
-// =========================================================
-// LIMPAR SELEÇÃO 3D
-// =========================================================
-
-function clearObjectSelection() {
-
-    if (selectionOutline) {
-
-        scene.remove(
-            selectionOutline
-        );
-
-        if (
-            selectionOutline.geometry
-        ) {
-
-            selectionOutline.geometry.dispose();
-
-        }
-
-        if (
-            selectionOutline.material
-        ) {
-
-            selectionOutline.material.dispose();
-
-        }
-
-        selectionOutline = null;
-
-    }
-
-    selectedObject3D = null;
-
-    selected3dElement.textContent =
-        "Nenhuma caixa 3D selecionada";
-
+    el.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();selectMarker(m)});
+    m._el=el;
+    $("markers").appendChild(el);
+  }
+  updateMarkerPositions();
 }
 
-
-// =========================================================
-// SELECIONAR MESH
-// =========================================================
-
-function selectObject3D(object) {
-
-    clearObjectSelection();
-
-    selectedObject3D =
-        object;
-
-
-    /*
-     * Como cada caixa está em uma
-     * mesh separada, o objeto clicado
-     * pode ser selecionado individualmente.
-     */
-
-    if (
-        object.isMesh &&
-        object.geometry
-    ) {
-
-        const edges =
-            new THREE.EdgesGeometry(
-                object.geometry,
-                25
-            );
-
-        const material =
-            new THREE.LineBasicMaterial({
-                color: 0xffff00,
-                transparent: true,
-                opacity: .95
-            });
-
-        selectionOutline =
-            new THREE.LineSegments(
-                edges,
-                material
-            );
-
-        /*
-         * Coloca o contorno como filho
-         * da própria mesh.
-         *
-         * Assim ele acompanha posição,
-         * rotação e escala.
-         */
-
-        object.add(
-            selectionOutline
-        );
-
-    }
-
-    selected3dElement.textContent =
-        "📦 Selecionada: " +
-        (
-            object.name ||
-            "Mesh sem nome"
-        );
-
-    setStatus(
-        "Caixa 3D selecionada."
-    );
-
+function updateMarkerPositions(){
+  for(const m of markers){
+    if(!m._el)continue;
+    const p=new THREE.Vector3(Number(m.pos_x)||0,Number(m.pos_y)||0,Number(m.pos_z)||0);
+    p.project(camera);
+    const visible=p.z<=1;
+    m._el.style.display=visible?"block":"none";
+    m._el.style.left=((p.x*.5+.5)*innerWidth)+"px";
+    m._el.style.top=((-p.y*.5+.5)*innerHeight)+"px";
+  }
 }
 
-
-// =========================================================
-// CLICK NO MODELO 3D
-// =========================================================
-
-renderer.domElement.addEventListener(
-    "pointerdown",
-    function(event) {
-
-        /*
-         * Se um marcador estiver sendo
-         * arrastado, não seleciona o modelo.
-         */
-
-        if (draggingMarker) {
-            return;
-        }
-
-        const rect =
-            renderer.domElement
-            .getBoundingClientRect();
-
-        mouse.x =
-            (
-                (
-                    event.clientX -
-                    rect.left
-                ) /
-                rect.width
-            ) * 2 - 1;
-
-        mouse.y =
-            -(
-                (
-                    event.clientY -
-                    rect.top
-                ) /
-                rect.height
-            ) * 2 + 1;
-
-
-        raycaster.setFromCamera(
-            mouse,
-            camera
-        );
-
-
-        if (!model) {
-            return;
-        }
-
-
-        const intersections =
-            raycaster.intersectObject(
-                model,
-                true
-            );
-
-
-        if (
-            intersections.length > 0
-        ) {
-
-            const object =
-                intersections[0].object;
-
-            if (object.isMesh) {
-
-                selectObject3D(
-                    object
-                );
-
-            }
-
-        } else {
-
-            clearObjectSelection();
-
-            setStatus(
-                "Nenhuma caixa selecionada."
-            );
-
-        }
-
-    }
-);
-
-
-// =========================================================
-// CARREGAR GLB
-// =========================================================
-
-loader.load(
-
-    "estoque.glb",
-
-    function(gltf) {
-
-        model =
-            gltf.scene;
-
-        scene.add(
-            model
-        );
-
-
-        /*
-         * Centralização automática.
-         */
-
-        const box =
-            new THREE.Box3()
-            .setFromObject(
-                model
-            );
-
-        const center =
-            box.getCenter(
-                new THREE.Vector3()
-            );
-
-        model.position.sub(
-            center
-        );
-
-
-        const newBox =
-            new THREE.Box3()
-            .setFromObject(
-                model
-            );
-
-        const size =
-            newBox.getSize(
-                new THREE.Vector3()
-            );
-
-        const maxSize =
-            Math.max(
-                size.x,
-                size.y,
-                size.z
-            );
-
-
-        camera.position.set(
-            maxSize * 1.3,
-            maxSize * 1.0,
-            maxSize * 1.3
-        );
-
-
-        controls.target.set(
-            0,
-            0,
-            0
-        );
-
-        controls.update();
-
-
-        setStatus(
-            "Modelo 3D carregado."
-        );
-
-    },
-
-    function(xhr) {
-
-        if (
-            xhr.total
-        ) {
-
-            const percent =
-                (
-                    xhr.loaded /
-                    xhr.total
-                ) * 100;
-
-            setStatus(
-                "Carregando estoque... " +
-                Math.round(percent) +
-                "%"
-            );
-
-        }
-
-    },
-
-    function(error) {
-
-        console.error(
-            "Erro ao carregar GLB:",
-            error
-        );
-
-        setStatus(
-            "❌ Erro ao carregar estoque.glb"
-        );
-
-    }
-
-);
-
-
-// =========================================================
-// MARCADORES
-// =========================================================
-
-let markers = [];
-
-let selectedMarker = null;
-
-let draggingMarker = false;
-
-let draggingMarkerData = null;
-
-let dragPlane = null;
-
-let dragPointerId = null;
-
-
-// =========================================================
-// CRIAR ELEMENTO DO MARCADOR
-// =========================================================
-
-function createMarkerElement(
-    marker
-) {
-
-    const element =
-        document.createElement(
-            "div"
-        );
-
-    element.className =
-        "marker";
-
-    element.style.pointerEvents =
-        "auto";
-
-    element.style.touchAction =
-        "none";
-
-    element.title =
-        marker.nome ||
-        "Caixa";
-
-
-    element.addEventListener(
-        "pointerdown",
-        function(event) {
-
-            event.preventDefault();
-
-            event.stopPropagation();
-
-            startMarkerDrag(
-                marker,
-                element,
-                event
-            );
-
-        }
-    );
-
-
-    element.addEventListener(
-        "click",
-        function(event) {
-
-            event.preventDefault();
-
-            event.stopPropagation();
-
-            /*
-             * O click só seleciona.
-             *
-             * O arrastar é tratado
-             * pelos eventos de pointer.
-             */
-
-            selectMarker(
-                marker
-            );
-
-        }
-    );
-
-
-    markerContainer.appendChild(
-        element
-    );
-
-    marker.element =
-        element;
-
-    return element;
-
+function selectMarker(m){
+  selectedMarker=m;
+  $("name").value=m.nome||"";
+  $("sku").value=m.sku||"";
+  $("size").value=m.tamanho||"";
+  $("description").value=m.descricao||"";
+  if(m.foto_url){
+    $("photoPreview").src=m.foto_url;
+    $("photoPreview").style.display="block";
+  }else{
+    $("photoPreview").style.display="none";
+    $("photoPreview").removeAttribute("src");
+  }
+  $("panel").style.display="block";
+  for(const x of markers)x._el?.classList.toggle("selected",x.id===m.id);
 }
 
+function startDrag(m,el,e){
+  dragging=true;
+  dragData={m,el};
+  controls.enabled=false;
+  el.classList.add("dragging");
 
-// =========================================================
-// RENDERIZAR MARCADORES
-// =========================================================
+  const pos=new THREE.Vector3(Number(m.pos_x)||0,Number(m.pos_y)||0,Number(m.pos_z)||0);
+  const dir=new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  dragPlane=new THREE.Plane().setFromNormalAndCoplanarPoint(dir,pos);
+}
 
-function renderMarkers() {
-
-    markerContainer.innerHTML = "";
-
-    for (
-        const marker of markers
-    ) {
-
-        createMarkerElement(
-            marker
-        );
-
-    }
-
+window.addEventListener("pointermove",e=>{
+  if(!dragging||!dragData||!dragPlane)return;
+  pointerToNdc(e);
+  raycaster.setFromCamera(mouse,camera);
+  const hit=new THREE.Vector3();
+  if(raycaster.ray.intersectPlane(dragPlane,hit)){
+    dragData.m.pos_x=hit.x;
+    dragData.m.pos_y=hit.y;
+    dragData.m.pos_z=hit.z;
     updateMarkerPositions();
+  }
+});
 
-    updateMarkerVisualSelection();
+window.addEventListener("pointerup",async()=>{
+  if(!dragging||!dragData)return;
+  const {m,el}=dragData;
+  dragging=false;dragData=null;dragPlane=null;
+  controls.enabled=true;
+  el.classList.remove("dragging");
+  await savePosition(m);
+});
 
+async function savePosition(m){
+  const {error}=await db.from("markers").update({
+    pos_x:m.pos_x,pos_y:m.pos_y,pos_z:m.pos_z
+  }).eq("id",m.id);
+  if(error){console.error(error);setStatus("❌ Erro ao salvar posição: "+error.message)}
+  else setStatus("📍 Posição salva.");
 }
 
+$("newMarker").onclick=async()=>{
+  const {data:{user}}=await db.auth.getUser();
+  if(!user){alert("Faça login para criar uma caixa.");return;}
 
-// =========================================================
-// VISUAL DO MARCADOR SELECIONADO
-// =========================================================
+  let p=new THREE.Vector3(0,0,0);
+  if(selectedMesh){
+    p=new THREE.Box3().setFromObject(selectedMesh).getCenter(new THREE.Vector3());
+  }else{
+    p.set(0,0,0);
+  }
 
-function updateMarkerVisualSelection() {
+  const {data,error}=await db.from("markers").insert({
+    nome:"Nova caixa",pos_x:p.x,pos_y:p.y,pos_z:p.z
+  }).select().single();
 
-    for (
-        const marker of markers
-    ) {
+  if(error){console.error(error);alert("Erro ao criar caixa:\n"+error.message);return;}
+  if(!markers.some(x=>x.id===data.id))markers.push(data);
+  renderMarkers();selectMarker(data);
+  setStatus("📦 Caixa criada.");
+};
 
-        if (!marker.element) {
-            continue;
-        }
+$("save").onclick=async()=>{
+  if(!selectedMarker)return;
 
-        if (
-            selectedMarker &&
-            marker.id === selectedMarker.id
-        ) {
+  const updates={
+    nome:$("name").value.trim(),
+    sku:$("sku").value.trim(),
+    tamanho:$("size").value.trim(),
+    descricao:$("description").value.trim()
+  };
 
-            marker.element.classList.add(
-                "selected"
-            );
+  const file=$("photo").files[0];
+  if(file){
+    const ext=(file.name.split(".").pop()||"jpg").toLowerCase();
+    const path=`${selectedMarker.id}-${Date.now()}.${ext}`;
+    const {error:upErr}=await db.storage.from("estoque-fotos").upload(path,file,{contentType:file.type,upsert:false});
+    if(upErr){alert("Erro no upload da foto:\n"+upErr.message);return}
+    const {data:urlData}=db.storage.from("estoque-fotos").getPublicUrl(path);
+    updates.foto_url=urlData.publicUrl;
+  }
 
-        } else {
+  const {data,error}=await db.from("markers").update(updates).eq("id",selectedMarker.id).select().single();
+  if(error){alert("Erro ao salvar:\n"+error.message);return}
 
-            marker.element.classList.remove(
-                "selected"
-            );
+  Object.assign(selectedMarker,data);
+  $("photo").value="";
+  renderMarkers();
+  selectMarker(selectedMarker);
+  setStatus("💾 Caixa salva.");
+};
 
-        }
+async function deleteSelectedMarker(){
+  if(!selectedMarker)return;
+  const id=selectedMarker.id;
+  const {error}=await db.from("markers").delete().eq("id",id);
+  if(error){console.error(error);setStatus("❌ Erro ao excluir: "+error.message);return}
+  markers=markers.filter(m=>m.id!==id);
+  selectedMarker=null;
+  $("panel").style.display="none";
+  renderMarkers();
+  setStatus("🗑️ Marcador excluído.");
+}
+$("delete").onclick=deleteSelectedMarker;
 
-    }
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Delete"||!selectedMarker)return;
+  const a=document.activeElement;
+  if(a&&(a.tagName==="INPUT"||a.tagName==="TEXTAREA"))return;
+  e.preventDefault();
+  deleteSelectedMarker();
+});
 
+$("close").onclick=()=>{
+  $("panel").style.display="none";
+  selectedMarker=null;
+  renderMarkers();
+};
+
+$("search").addEventListener("input",()=>{
+  const q=$("search").value.toLowerCase().trim();
+  for(const m of markers){
+    if(!m._el)continue;
+    const text=[m.nome,m.sku,m.tamanho,m.descricao].filter(Boolean).join(" ").toLowerCase();
+    m._el.style.display=(!q||text.includes(q))?"block":"none";
+  }
+});
+
+$("loginBtn").onclick=()=>$("login").style.display="block";
+$("doLogin").onclick=async()=>{
+  const email=$("email").value.trim(),password=$("password").value;
+  const {error}=await db.auth.signInWithPassword({email,password});
+  if(error){$("loginStatus").textContent=error.message;return}
+  $("login").style.display="none";$("email").value="";$("password").value="";
+  updateAuthUI();setStatus("🔓 Login realizado.");
+};
+$("logoutBtn").onclick=async()=>{await db.auth.signOut();updateAuthUI();setStatus("🔒 Sessão encerrada.")};
+
+async function updateAuthUI(){
+  const {data:{user}}=await db.auth.getUser();
+  $("loginBtn").style.display=user?"none":"block";
+  $("logoutBtn").style.display=user?"block":"none";
 }
 
-
-// =========================================================
-// POSIÇÃO DOS MARCADORES
-// =========================================================
-
-function updateMarkerPositions() {
-
-    for (
-        const marker of markers
-    ) {
-
-        if (
-            !marker.element
-        ) {
-            continue;
-        }
-
-
-        const position =
-            new THREE.Vector3(
-                Number(marker.pos_x) || 0,
-                Number(marker.pos_y) || 0,
-                Number(marker.pos_z) || 0
-            );
-
-
-        position.project(
-            camera
-        );
-
-
-        const x =
-            (
-                position.x * .5 +
-                .5
-            ) *
-            window.innerWidth;
-
-
-        const y =
-            (
-                -position.y * .5 +
-                .5
-            ) *
-            window.innerHeight;
-
-
-        marker.element.style.left =
-            `${x}px`;
-
-        marker.element.style.top =
-            `${y}px`;
-
-
-        /*
-         * Esconde quando está atrás
-         * da câmera.
-         */
-
-        if (
-            position.z > 1
-        ) {
-
-            marker.element.style.display =
-                "none";
-
-        } else {
-
-            marker.element.style.display =
-                "block";
-
-        }
-
-    }
-
+async function loadMarkers(){
+  const {data,error}=await db.from("markers").select("*");
+  if(error){console.error(error);setStatus("❌ Erro nos marcadores: "+error.message);return}
+  markers=data||[];
+  renderMarkers();
+  setStatus(`${markers.length} caixas carregadas.`);
 }
 
-
-// =========================================================
-// SELECIONAR MARCADOR
-// =========================================================
-
-function selectMarker(
-    marker
-) {
-
-    selectedMarker =
-        marker;
-
-
-    document.getElementById(
-        "markerName"
-    ).value =
-        marker.nome || "";
-
-
-    document.getElementById(
-        "markerSku"
-    ).value =
-        marker.sku || "";
-
-
-    document.getElementById(
-        "markerSize"
-    ).value =
-        marker.tamanho || "";
-
-
-    document.getElementById(
-        "markerDescription"
-    ).value =
-        marker.descricao || "";
-
-
-    const preview =
-        document.getElementById(
-            "photoPreview"
-        );
-
-
-    if (
-        marker.foto_url
-    ) {
-
-        preview.src =
-            marker.foto_url;
-
-        preview.style.display =
-            "block";
-
-    } else {
-
-        preview.removeAttribute(
-            "src"
-        );
-
-        preview.style.display =
-            "none";
-
+db.channel("markers-realtime")
+.on("postgres_changes",{event:"*",schema:"public",table:"markers"},payload=>{
+  if(payload.eventType==="INSERT"){
+    if(!markers.some(m=>m.id===payload.new.id))markers.push(payload.new);
+  }else if(payload.eventType==="UPDATE"){
+    const i=markers.findIndex(m=>m.id===payload.new.id);
+    if(i>=0){
+      const was=selectedMarker?.id===payload.new.id;
+      markers[i]=payload.new;
+      if(was)selectedMarker=markers[i];
     }
-
-
-    panel.style.display =
-        "block";
-
-
-    updateMarkerVisualSelection();
-
-}
-
-
-// =========================================================
-// COMEÇAR ARRASTAMENTO
-// =========================================================
-
-function startMarkerDrag(
-    marker,
-    element,
-    event
-) {
-
-    selectMarker(
-        marker
-    );
-
-
-    draggingMarker =
-        true;
-
-    draggingMarkerData = {
-        marker,
-        element
-    };
-
-
-    dragPointerId =
-        event.pointerId;
-
-
-    element.classList.add(
-        "dragging"
-    );
-
-
-    try {
-
-        element.setPointerCapture(
-            event.pointerId
-        );
-
-    } catch (error) {
-
-        console.warn(
-            error
-        );
-
-    }
-
-
-    /*
-     * Cria um plano perpendicular
-     * à direção da câmera.
-     *
-     * O marcador se movimenta
-     * acompanhando o mouse na tela.
-     */
-
-    const markerPosition =
-        new THREE.Vector3(
-            Number(marker.pos_x) || 0,
-            Number(marker.pos_y) || 0,
-            Number(marker.pos_z) || 0
-        );
-
-
-    const cameraDirection =
-        new THREE.Vector3();
-
-    camera.getWorldDirection(
-        cameraDirection
-    );
-
-
-    dragPlane =
-        new THREE.Plane()
-        .setFromNormalAndCoplanarPoint(
-            cameraDirection,
-            markerPosition
-        );
-
-
-    controls.enabled =
-        false;
-
-}
-
-
-// =========================================================
-// ARRASTAR MARCADOR
-// =========================================================
-
-window.addEventListener(
-    "pointermove",
-    function(event) {
-
-        if (
-            !draggingMarker ||
-            !draggingMarkerData ||
-            !dragPlane
-        ) {
-            return;
-        }
-
-
-        const rect =
-            renderer.domElement
-            .getBoundingClientRect();
-
-
-        mouse.x =
-            (
-                (
-                    event.clientX -
-                    rect.left
-                ) /
-                rect.width
-            ) * 2 - 1;
-
-
-        mouse.y =
-            -(
-                (
-                    event.clientY -
-                    rect.top
-                ) /
-                rect.height
-            ) * 2 + 1;
-
-
-        raycaster.setFromCamera(
-            mouse,
-            camera
-        );
-
-
-        const intersection =
-            new THREE.Vector3();
-
-
-        const hit =
-            raycaster.ray.intersectPlane(
-                dragPlane,
-                intersection
-            );
-
-
-        if (!hit) {
-            return;
-        }
-
-
-        const marker =
-            draggingMarkerData.marker;
-
-
-        marker.pos_x =
-            intersection.x;
-
-        marker.pos_y =
-            intersection.y;
-
-        marker.pos_z =
-            intersection.z;
-
-
-        updateMarkerPositions();
-
-    }
-);
-
-
-// =========================================================
-// TERMINAR ARRASTAMENTO
-// =========================================================
-
-window.addEventListener(
-    "pointerup",
-    async function(event) {
-
-        if (
-            !draggingMarker ||
-            !draggingMarkerData
-        ) {
-            return;
-        }
-
-
-        const {
-            marker,
-            element
-        } =
-            draggingMarkerData;
-
-
-        draggingMarker =
-            false;
-
-
-        draggingMarkerData =
-            null;
-
-
-        dragPlane =
-            null;
-
-
-        controls.enabled =
-            true;
-
-
-        element.classList.remove(
-            "dragging"
-        );
-
-
-        try {
-
-            if (
-                dragPointerId !== null
-            ) {
-
-                element.releasePointerCapture(
-                    dragPointerId
-                );
-
-            }
-
-        } catch (error) {
-
-            console.warn(
-                error
-            );
-
-        }
-
-
-        dragPointerId =
-            null;
-
-
-        await saveMarkerPosition(
-            marker
-        );
-
-    }
-);
-
-
-// =========================================================
-// SALVAR POSIÇÃO
-// =========================================================
-
-async function saveMarkerPosition(
-    marker
-) {
-
-    const {
-        error
-    } =
-        await supabaseClient
-        .from("markers")
-        .update({
-            pos_x: marker.pos_x,
-            pos_y: marker.pos_y,
-            pos_z: marker.pos_z
-        })
-        .eq(
-            "id",
-            marker.id
-        );
-
-
-    if (error) {
-
-        console.error(
-            error
-        );
-
-        setStatus(
-            "❌ Erro ao salvar posição."
-        );
-
-        return false;
-
-    }
-
-
-    setStatus(
-        "📍 Posição salva."
-    );
-
-    return true;
-
-}
-
-
-// =========================================================
-// NOVA CAIXA
-// =========================================================
-
-document.getElementById(
-    "newMarker"
-).addEventListener(
-    "click",
-    async function() {
-
-        const {
-            data: {
-                user
-            }
-        } =
-            await supabaseClient
-            .auth
-            .getUser();
-
-
-        if (!user) {
-
-            alert(
-                "Você precisa fazer login para criar uma caixa."
-            );
-
-            return;
-
-        }
-
-
-        let position =
-            new THREE.Vector3(
-                0,
-                1,
-                0
-            );
-
-
-        /*
-         * Se uma mesh estiver selecionada,
-         * cria o marcador no centro dela.
-         */
-
-        if (
-            selectedObject3D
-        ) {
-
-            const box =
-                new THREE.Box3()
-                .setFromObject(
-                    selectedObject3D
-                );
-
-
-            position =
-                box.getCenter(
-                    new THREE.Vector3()
-                );
-
-        }
-
-
-        const {
-            data,
-            error
-        } =
-            await supabaseClient
-            .from("markers")
-            .insert({
-
-                nome:
-                    "Nova caixa",
-
-                pos_x:
-                    position.x,
-
-                pos_y:
-                    position.y,
-
-                pos_z:
-                    position.z
-
-            })
-            .select()
-            .single();
-
-
-        if (error) {
-
-            console.error(
-                error
-            );
-
-            alert(
-                "❌ Erro ao criar marcador:\n" +
-                error.message
-            );
-
-            return;
-
-        }
-
-
-        /*
-         * O Realtime também pode inserir
-         * esse marcador.
-         *
-         * Por isso verificamos se ele
-         * já existe antes de adicionar.
-         */
-
-        const alreadyExists =
-            markers.some(
-                m =>
-                    m.id === data.id
-            );
-
-
-        if (!alreadyExists) {
-
-            markers.push(
-                data
-            );
-
-        }
-
-
-        renderMarkers();
-
-        selectMarker(
-            data
-        );
-
-
-        setStatus(
-            "📦 Nova caixa criada."
-        );
-
-    }
-);
-
-
-// =========================================================
-// SALVAR CAIXA
-// =========================================================
-
-document.getElementById(
-    "saveMarker"
-).addEventListener(
-    "click",
-    async function() {
-
-        if (!selectedMarker) {
-            return;
-        }
-
-
-        const updates = {
-
-            nome:
-                document.getElementById(
-                    "markerName"
-                ).value.trim(),
-
-            sku:
-                document.getElementById(
-                    "markerSku"
-                ).value.trim(),
-
-            tamanho:
-                document.getElementById(
-                    "markerSize"
-                ).value.trim(),
-
-            descricao:
-                document.getElementById(
-                    "markerDescription"
-                ).value.trim()
-
-        };
-
-
-        // =================================================
-        // UPLOAD FOTO
-        // =================================================
-
-        const file =
-            document.getElementById(
-                "photo"
-            ).files[0];
-
-
-        if (file) {
-
-            const extension =
-                file.name
-                .split(".")
-                .pop()
-                .toLowerCase();
-
-
-            const filename =
-                `${selectedMarker.id}-${Date.now()}.${extension}`;
-
-
-            const {
-                error: uploadError
-            } =
-                await supabaseClient
-                .storage
-                .from("estoque-fotos")
-                .upload(
-                    filename,
-                    file,
-                    {
-                        contentType:
-                            file.type,
-                        upsert: false
-                    }
-                );
-
-
-            if (uploadError) {
-
-                console.error(
-                    uploadError
-                );
-
-                alert(
-                    "❌ Erro ao enviar foto:\n" +
-                    uploadError.message
-                );
-
-                return;
-
-            }
-
-
-            const {
-                data: publicData
-            } =
-                supabaseClient
-                .storage
-                .from("estoque-fotos")
-                .getPublicUrl(
-                    filename
-                );
-
-
-            updates.foto_url =
-                publicData.publicUrl;
-
-        }
-
-
-        // =================================================
-        // ATUALIZAR BANCO
-        // =================================================
-
-        const {
-            data,
-            error
-        } =
-            await supabaseClient
-            .from("markers")
-            .update(
-                updates
-            )
-            .eq(
-                "id",
-                selectedMarker.id
-            )
-            .select()
-            .single();
-
-
-        if (error) {
-
-            console.error(
-                error
-            );
-
-            alert(
-                "❌ Erro ao salvar:\n" +
-                error.message
-            );
-
-            return;
-
-        }
-
-
-        Object.assign(
-            selectedMarker,
-            data
-        );
-
-
-        renderMarkers();
-
-        selectMarker(
-            selectedMarker
-        );
-
-
-        document.getElementById(
-            "photo"
-        ).value =
-            "";
-
-
-        setStatus(
-            "💾 Caixa salva!"
-        );
-
-    }
-);
-
-
-// =========================================================
-// EXCLUIR MARCADOR
-// =========================================================
-
-async function deleteSelectedMarker() {
-
-    if (!selectedMarker) {
-        return;
-    }
-
-
-    const id =
-        selectedMarker.id;
-
-
-    const {
-        error
-    } =
-        await supabaseClient
-        .from("markers")
-        .delete()
-        .eq(
-            "id",
-            id
-        );
-
-
-    if (error) {
-
-        console.error(
-            error
-        );
-
-        setStatus(
-            "❌ Erro ao excluir marcador."
-        );
-
-        return;
-
-    }
-
-
-    markers =
-        markers.filter(
-            marker =>
-                marker.id !== id
-        );
-
-
-    selectedMarker =
-        null;
-
-
-    panel.style.display =
-        "none";
-
-
-    renderMarkers();
-
-
-    setStatus(
-        "🗑️ Marcador excluído."
-    );
-
-}
-
-
-// =========================================================
-// BOTÃO EXCLUIR
-// =========================================================
-
-document.getElementById(
-    "deleteMarker"
-).addEventListener(
-    "click",
-    async function() {
-
-        await deleteSelectedMarker();
-
-    }
-);
-
-
-// =========================================================
-// DELETE DO TECLADO
-// =========================================================
-
-document.addEventListener(
-    "keydown",
-    async function(event) {
-
-        if (
-            event.key !== "Delete"
-        ) {
-            return;
-        }
-
-
-        if (!selectedMarker) {
-            return;
-        }
-
-
-        /*
-         * Se estiver escrevendo em um
-         * campo, não apaga.
-         */
-
-        const active =
-            document.activeElement;
-
-
-        if (
-            active &&
-            (
-                active.tagName ===
-                "INPUT" ||
-
-                active.tagName ===
-                "TEXTAREA"
-            )
-        ) {
-
-            return;
-
-        }
-
-
-        await deleteSelectedMarker();
-
-    }
-);
-
-
-// =========================================================
-// FECHAR PAINEL
-// =========================================================
-
-document.getElementById(
-    "closePanel"
-).addEventListener(
-    "click",
-    function() {
-
-        panel.style.display =
-            "none";
-
-        selectedMarker =
-            null;
-
-        updateMarkerVisualSelection();
-
-    }
-);
-
-
-// =========================================================
-// LOGIN
-// =========================================================
-
-document.getElementById(
-    "loginButton"
-).addEventListener(
-    "click",
-    function() {
-
-        document.getElementById(
-            "login"
-        ).style.display =
-            "block";
-
-    }
-);
-
-
-// =========================================================
-// FAZER LOGIN
-// =========================================================
-
-document.getElementById(
-    "doLogin"
-).addEventListener(
-    "click",
-    async function() {
-
-        const email =
-            document.getElementById(
-                "email"
-            ).value.trim();
-
-
-        const password =
-            document.getElementById(
-                "password"
-            ).value;
-
-
-        if (
-            !email ||
-            !password
-        ) {
-
-            document.getElementById(
-                "loginStatus"
-            ).textContent =
-                "Preencha e-mail e senha.";
-
-            return;
-
-        }
-
-
-        const {
-            error
-        } =
-            await supabaseClient
-            .auth
-            .signInWithPassword({
-
-                email,
-
-                password
-
-            });
-
-
-        if (error) {
-
-            document.getElementById(
-                "loginStatus"
-            ).textContent =
-                error.message;
-
-            return;
-
-        }
-
-
-        document.getElementById(
-            "login"
-        ).style.display =
-            "none";
-
-
-        document.getElementById(
-            "email"
-        ).value =
-            "";
-
-        document.getElementById(
-            "password"
-        ).value =
-            "";
-
-
-        updateAuthUI();
-
-        setStatus(
-            "🔓 Login realizado."
-        );
-
-    }
-);
-
-
-// =========================================================
-// LOGOUT
-// =========================================================
-
-document.getElementById(
-    "logoutButton"
-).addEventListener(
-    "click",
-    async function() {
-
-        await supabaseClient
-            .auth
-            .signOut();
-
-        updateAuthUI();
-
-        setStatus(
-            "🔒 Sessão encerrada."
-        );
-
-    }
-);
-
-
-// =========================================================
-// ATUALIZAR INTERFACE DE LOGIN
-// =========================================================
-
-async function updateAuthUI() {
-
-    const {
-        data: {
-            user
-        }
-    } =
-        await supabaseClient
-        .auth
-        .getUser();
-
-
-    const loginButton =
-        document.getElementById(
-            "loginButton"
-        );
-
-    const logoutButton =
-        document.getElementById(
-            "logoutButton"
-        );
-
-
-    if (user) {
-
-        loginButton.style.display =
-            "none";
-
-        logoutButton.style.display =
-            "block";
-
-    } else {
-
-        loginButton.style.display =
-            "block";
-
-        logoutButton.style.display =
-            "none";
-
-    }
-
-}
-
-
-// =========================================================
-// CARREGAR MARCADORES
-// =========================================================
-
-async function loadMarkers() {
-
-    const {
-        data,
-        error
-    } =
-        await supabaseClient
-        .from("markers")
-        .select("*")
-        .order(
-            "criado_em",
-            {
-                ascending: true
-            }
-        );
-
-
-    if (error) {
-
-        console.error(
-            error
-        );
-
-        setStatus(
-            "❌ Erro ao carregar marcadores: " +
-            error.message
-        );
-
-        return;
-
-    }
-
-
-    markers =
-        data || [];
-
-
-    renderMarkers();
-
-
-    setStatus(
-        `${markers.length} caixas carregadas.`
-    );
-
-}
-
-
-// =========================================================
-// BUSCA
-// =========================================================
-
-document.getElementById(
-    "search"
-).addEventListener(
-    "input",
-    function() {
-
-        const query =
-            this.value
-            .trim()
-            .toLowerCase();
-
-
-        for (
-            const marker of markers
-        ) {
-
-            if (
-                !marker.element
-            ) {
-                continue;
-            }
-
-
-            const text = [
-
-                marker.nome,
-
-                marker.sku,
-
-                marker.tamanho,
-
-                marker.descricao
-
-            ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-
-
-            if (
-                !query ||
-                text.includes(query)
-            ) {
-
-                marker.element.style.display =
-                    "block";
-
-            } else {
-
-                marker.element.style.display =
-                    "none";
-
-            }
-
-        }
-
-    }
-);
-
-
-// =========================================================
-// REALTIME SUPABASE
-// =========================================================
-
-supabaseClient
-.channel(
-    "markers-realtime"
-)
-.on(
-    "postgres_changes",
-    {
-        event: "*",
-        schema: "public",
-        table: "markers"
-    },
-    function(payload) {
-
-        console.log(
-            "Realtime:",
-            payload
-        );
-
-
-        // =============================================
-        // INSERT
-        // =============================================
-
-        if (
-            payload.eventType ===
-            "INSERT"
-        ) {
-
-            const exists =
-                markers.some(
-                    marker =>
-                        marker.id ===
-                        payload.new.id
-                );
-
-
-            if (!exists) {
-
-                markers.push(
-                    payload.new
-                );
-
-                renderMarkers();
-
-            }
-
-            return;
-
-        }
-
-
-        // =============================================
-        // UPDATE
-        // =============================================
-
-        if (
-            payload.eventType ===
-            "UPDATE"
-        ) {
-
-            const index =
-                markers.findIndex(
-                    marker =>
-                        marker.id ===
-                        payload.new.id
-                );
-
-
-            if (
-                index !== -1
-            ) {
-
-                const wasSelected =
-                    selectedMarker &&
-                    selectedMarker.id ===
-                    payload.new.id;
-
-
-                markers[index] =
-                    payload.new;
-
-
-                if (
-                    wasSelected
-                ) {
-
-                    selectedMarker =
-                        markers[index];
-
-                }
-
-
-                renderMarkers();
-
-
-                if (
-                    wasSelected
-                ) {
-
-                    selectMarker(
-                        selectedMarker
-                    );
-
-                }
-
-            }
-
-            return;
-
-        }
-
-
-        // =============================================
-        // DELETE
-        // =============================================
-
-        if (
-            payload.eventType ===
-            "DELETE"
-        ) {
-
-            const deletedId =
-                payload.old.id;
-
-
-            markers =
-                markers.filter(
-                    marker =>
-                        marker.id !==
-                        deletedId
-                );
-
-
-            if (
-                selectedMarker &&
-                selectedMarker.id ===
-                deletedId
-            ) {
-
-                selectedMarker =
-                    null;
-
-                panel.style.display =
-                    "none";
-
-            }
-
-
-            renderMarkers();
-
-        }
-
-    }
-)
+  }else if(payload.eventType==="DELETE"){
+    markers=markers.filter(m=>m.id!==payload.old.id);
+    if(selectedMarker?.id===payload.old.id){selectedMarker=null;$("panel").style.display="none"}
+  }
+  renderMarkers();
+  if(selectedMarker)selectMarker(selectedMarker);
+})
 .subscribe();
 
+window.addEventListener("resize",()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+  updateMarkerPositions();
+});
 
-// =========================================================
-// RESIZE
-// =========================================================
-
-window.addEventListener(
-    "resize",
-    function() {
-
-        camera.aspect =
-            window.innerWidth /
-            window.innerHeight;
-
-        camera.updateProjectionMatrix();
-
-
-        renderer.setSize(
-            window.innerWidth,
-            window.innerHeight
-        );
-
-
-        updateMarkerPositions();
-
-    }
-);
-
-
-// =========================================================
-// LOOP
-// =========================================================
-
-function animate() {
-
-    requestAnimationFrame(
-        animate
-    );
-
-
-    controls.update();
-
-
-    updateMarkerPositions();
-
-
-    renderer.render(
-        scene,
-        camera
-    );
-
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  updateMarkerPositions();
+  renderer.render(scene,camera);
 }
-
 animate();
 
-
-// =========================================================
-// INICIALIZAÇÃO
-// =========================================================
-
 updateAuthUI();
-
 loadMarkers();
-
 </script>
-
 </body>
 </html>
