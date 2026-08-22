@@ -25,9 +25,35 @@ input,textarea{width:100%;background:#222;color:#fff;border:1px solid #444;borde
 #status,#selectedInfo{position:absolute;z-index:25;bottom:12px;padding:8px 11px;background:#000b;border-radius:8px;font-size:12px;pointer-events:none}
 #status{left:12px}.selectedInfo{right:12px}
 #selectedInfo{right:12px}
-#markers{position:absolute;inset:0;z-index:10;pointer-events:none}
 .marker{
   position:absolute;
+  width:11px;
+  height:11px;
+  transform:translate(-50%,-50%);
+  border:2px solid rgba(255,255,255,.8);
+  border-radius:50%;
+  background:#dc2626;
+  box-shadow:0 1px 4px rgba(0,0,0,.5);
+  pointer-events:auto;
+  cursor:grab;
+  touch-action:none;
+  transition:.15s;
+}
+
+.marker.selected{
+  width:18px;
+  height:18px;
+  background:#22c55e;
+  border-color:#fff;
+  box-shadow:0 0 8px rgba(34,197,94,.7);
+  transform:translate(-50%,-50%);
+}
+
+.marker.dragging{
+  background:#f59e0b;
+  box-shadow:0 0 7px rgba(245,158,11,.7);
+  cursor:grabbing;
+}
   width:12px;
   height:12px;
   transform:translate(-50%,-50%);
@@ -359,14 +385,157 @@ $("newMarker").onclick=async()=>{
   if(error){console.error(error);alert("Erro ao criar caixa:\n"+error.message);return;}
   if(!markers.some(x=>x.id===data.id))markers.push(data);
   renderMarkers();selectMarker(data);
-  setStatus("📦 Caixa criada.");
-};
+function markerSearchText(m){
+  return [
+    m.nome,
+    m.sku,
+    m.tamanho,
+    m.descricao
+  ]
+  .filter(Boolean)
+  .join(" ")
+  .toLowerCase();
+}
 
-$("save").onclick=async()=>{
-  if(!selectedMarker)return;
+function focusMarker(m){
+  if(!m) return;
 
-  const updates={
-    nome:$("name").value.trim(),
+  selectedMarker = m;
+
+  // Mostra somente o marcador encontrado
+  for(const x of markers){
+    if(!x._el) continue;
+
+    const isSelected = x.id === m.id;
+
+    x._el.style.display = isSelected ? "block" : "none";
+    x._el.classList.toggle("selected", isSelected);
+  }
+
+  // Abre os dados da caixa
+  selectMarker(m);
+
+  // Leva a câmera para a posição do marcador
+  const target = new THREE.Vector3(
+    Number(m.pos_x) || 0,
+    Number(m.pos_y) || 0,
+    Number(m.pos_z) || 0
+  );
+
+  const direction = new THREE.Vector3(1, 0.7, 1).normalize();
+  const distance = Math.max(
+    camera.position.distanceTo(controls.target) * 0.35,
+    2.5
+  );
+
+  camera.position.copy(
+    target.clone().add(direction.multiplyScalar(distance))
+  );
+
+  controls.target.copy(target);
+  controls.update();
+
+  updateMarkerPositions();
+
+  setStatus(
+    "🔎 Encontrado: " +
+    (m.nome || m.sku || "Caixa sem nome")
+  );
+}
+
+function searchMarkers(){
+  const q = $("search").value
+    .toLowerCase()
+    .trim();
+
+  if(!q){
+    for(const m of markers){
+      if(m._el){
+        m._el.style.display = "block";
+        m._el.classList.remove("selected");
+      }
+    }
+
+    selectedMarker = null;
+    $("panel").style.display = "none";
+
+    setStatus(`${markers.length} caixas carregadas.`);
+    updateMarkerPositions();
+    return;
+  }
+
+  const results = markers.filter(m =>
+    markerSearchText(m).includes(q)
+  );
+
+  if(!results.length){
+    for(const m of markers){
+      if(m._el){
+        m._el.style.display = "none";
+        m._el.classList.remove("selected");
+      }
+    }
+
+    selectedMarker = null;
+    $("panel").style.display = "none";
+
+    setStatus("❌ Nenhuma caixa encontrada.");
+    return;
+  }
+
+  // Primeiro resultado
+  const exact = results.find(
+    m => markerSearchText(m) === q
+  );
+
+  focusMarker(exact || results[0]);
+}
+
+$("search").addEventListener("input",()=>{
+  const q = $("search").value
+    .toLowerCase()
+    .trim();
+
+  if(!q){
+    searchMarkers();
+    return;
+  }
+
+  const results = markers.filter(m =>
+    markerSearchText(m).includes(q)
+  );
+
+  for(const m of markers){
+    if(!m._el) continue;
+
+    m._el.style.display =
+      results.includes(m) ? "block" : "none";
+
+    m._el.classList.remove("selected");
+  }
+
+  if(results.length){
+    setStatus(
+      `${results.length} resultado(s). Pressione Enter para selecionar.`
+    );
+  }else{
+    setStatus("❌ Nenhuma caixa encontrada.");
+  }
+});
+
+$("search").addEventListener("keydown",e=>{
+  if(e.key === "Enter"){
+    e.preventDefault();
+    searchMarkers();
+  }
+
+  if(e.key === "Escape"){
+    e.preventDefault();
+    $("search").value = "";
+    searchMarkers();
+    $("search").blur();
+  }
+});
     sku:$("sku").value.trim(),
     tamanho:$("size").value.trim(),
     descricao:$("description").value.trim()
